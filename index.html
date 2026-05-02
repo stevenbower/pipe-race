@@ -1,0 +1,1652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>PipeWorks Derby</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;font-family:'Fredoka',system-ui,sans-serif;color:#fff8e8}
+  body{
+    background:linear-gradient(160deg,#ff9ed8 0%,#6dc8ff 50%,#b888ff 100%);
+    user-select:none;-webkit-user-select:none;
+  }
+
+  .frame{
+    position:fixed;inset:8px;border-radius:28px;border:6px solid transparent;
+    background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0)) padding-box,
+      linear-gradient(135deg,#fff0a8 0%,#ffb84a 25%,#ff6fb3 50%,#a96bff 75%,#6dc8ff 100%) border-box;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.3);
+    pointer-events:none;z-index:2;
+  }
+
+  .app{
+    position:fixed;inset:0;z-index:10;
+    display:flex;flex-direction:column;padding:14px 14px 12px;
+  }
+
+  header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:8px 12px 4px;gap:8px}
+  .logo h1{
+    font-family:'Bungee',cursive;font-size:clamp(18px,4vw,32px);
+    margin:0;letter-spacing:1.5px;color:#fff8e8;
+    text-shadow:0 2px 0 #c47818,0 4px 0 #6a3a08;
+  }
+  .logo h1 .accent{color:#ffd84a}
+  .logo h1 .pop{color:#5de8b8}
+  .head-btns{display:flex;gap:6px}
+  .icon-btn{
+    width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;
+    font-size:16px;color:#5a1a78;
+    background:linear-gradient(180deg,#fff0a8,#ffb84a);
+    box-shadow:0 3px 0 #c47818;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  .mode-bar{flex:0 0 auto;display:flex;gap:6px;padding:0 8px 4px;justify-content:center}
+  .mode-pill{
+    padding:5px 12px;border-radius:999px;border:none;cursor:pointer;
+    font-family:'Bungee',cursive;font-size:10px;letter-spacing:1px;
+    background:rgba(255,255,255,.2);color:#fff;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.3);
+  }
+  .mode-pill.active{
+    background:linear-gradient(180deg,#ffd84a,#ff9a3d);color:#5a1a78;
+    box-shadow:0 3px 0 #c47818;
+  }
+
+  .elim-bar{
+    flex:0 0 auto;display:flex;gap:6px;padding:0 8px 4px;justify-content:center;align-items:center;
+  }
+  .elim-bar .elim-label{
+    font-family:'Bungee',cursive;font-size:9px;letter-spacing:1px;
+    color:rgba(255,255,255,.85);margin-right:4px;
+  }
+  .elim-pill{
+    padding:4px 10px;border-radius:999px;border:none;cursor:pointer;
+    font-family:'Bungee',cursive;font-size:9px;letter-spacing:1px;
+    background:rgba(255,255,255,.15);color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.3);
+  }
+  .elim-pill.active{
+    background:linear-gradient(180deg,#ff8fc8,#e02d8a);color:#fff;
+    box-shadow:0 2px 0 #8a1450,inset 0 1px 0 rgba(255,255,255,.4);
+  }
+  .elim-bar.tourney-mode{opacity:.4;pointer-events:none}
+
+  /* Random pick button in picker */
+  .picker-toolbar{
+    display:flex;gap:8px;padding:0 4px 8px;align-items:center;flex:0 0 auto;
+  }
+  .randomize-btn{
+    flex:1;padding:10px 12px;border:none;border-radius:12px;cursor:pointer;
+    font-family:'Bungee',cursive;font-size:11px;letter-spacing:1px;
+    background:linear-gradient(180deg,#ffd84a,#ff9a3d);color:#5a1a78;
+    box-shadow:0 3px 0 #c47818,inset 0 1px 0 rgba(255,255,255,.5);
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .randomize-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #c47818}
+  .randomize-btn:disabled{opacity:.4;cursor:not-allowed}
+  .clear-pick-btn{
+    flex:0 0 auto;padding:10px 14px;border:none;border-radius:12px;cursor:pointer;
+    font-family:'Bungee',cursive;font-size:11px;letter-spacing:1px;
+    background:rgba(255,255,255,.25);color:#fff;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.4);
+  }
+  .clear-pick-btn:disabled{opacity:.4;cursor:not-allowed}
+
+  .track-wrap{flex:1 1 auto;min-height:200px;margin:4px auto 0;width:100%;max-width:780px;display:flex;flex-direction:column}
+  .scoreboard{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:4px 8px 6px;gap:8px}
+  .race-num{font-family:'Bungee',cursive;font-size:12px;color:#fff;text-shadow:0 2px 4px rgba(80,30,120,.5)}
+  .winner-tag{
+    font-family:'Bungee',cursive;font-size:12px;
+    padding:5px 12px;border-radius:999px;
+    background:linear-gradient(180deg,#ffe89a,#ffb84a);color:#5a3008;
+    box-shadow:0 3px 0 #6a3a08;
+    opacity:0;transition:opacity .35s;
+    white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis;
+  }
+  .winner-tag.show{opacity:1}
+  .svg-box{flex:1 1 auto;min-height:0;width:100%;display:flex}
+  .svg-track{width:100%;height:100%;display:block}
+
+  .controls{flex:0 0 auto;margin:8px auto 0;width:100%;max-width:780px;display:flex;flex-direction:column;gap:8px}
+  .platform{
+    height:64px;border-radius:18px;
+    background:linear-gradient(180deg,#a96bff 0%,#6a2aa8 100%);
+    box-shadow:inset 0 2px 0 rgba(255,220,255,.35),0 5px 0 #3a1268;
+    display:flex;align-items:center;justify-content:space-around;padding:0 14px;
+  }
+  .slot{
+    width:46px;height:46px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#2a0a48,#0a0220);
+    box-shadow:inset 0 4px 8px rgba(0,0,0,.7),0 0 0 3px #ffb84a;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .slot .placed{
+    width:38px;height:38px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    box-shadow:inset 0 -4px 6px rgba(0,0,0,.35),inset 0 3px 4px rgba(255,255,255,.5);
+  }
+  .slot .placed svg, .slot .placed img{width:70%;height:70%}
+
+  .actions{display:flex;gap:8px}
+  .picker-btn,.lever-btn,.reset-btn{
+    flex:1;min-height:50px;border:none;cursor:pointer;
+    font-family:'Bungee',cursive;letter-spacing:1px;border-radius:14px;
+    font-size:12px;
+  }
+  .picker-btn{
+    color:#1a4a8a;
+    background:linear-gradient(180deg,#a8e8ff 0%,#4aa8ff 100%);
+    box-shadow:0 4px 0 #1a5aa8;
+  }
+  .lever-btn{
+    font-size:14px;color:#fff;
+    background:linear-gradient(180deg,#ff8fc8 0%,#e02d8a 100%);
+    box-shadow:0 4px 0 #8a1450;
+  }
+  .lever-btn:disabled{
+    background:linear-gradient(180deg,#8a7090,#4a3a52);color:#c8b8d0;
+    box-shadow:0 4px 0 #2a1a32;cursor:not-allowed;
+  }
+  .reset-btn{
+    flex:0 0 50px;font-size:16px;color:#fff;
+    background:linear-gradient(180deg,#ffd84a,#ff9a3d);
+    box-shadow:0 4px 0 #c47818;
+  }
+
+  /* Sheets */
+  .sheet{position:fixed;inset:0;z-index:50;display:none;align-items:flex-end;background:rgba(40,10,80,.55)}
+  .sheet.open{display:flex}
+  .sheet-body{
+    width:100%;max-height:88vh;
+    background:linear-gradient(180deg,#ff9ed8 0%,#a96bff 50%,#6dc8ff 100%);
+    border-radius:28px 28px 0 0;
+    padding:14px 16px 24px;
+    display:flex;flex-direction:column;
+  }
+  .sheet-head{display:flex;justify-content:space-between;align-items:center;padding:14px 4px 10px}
+  .sheet-head h2{font-family:'Bungee',cursive;font-size:15px;color:#fff;margin:0}
+  .sheet-head .count{font-family:'Bungee',cursive;font-size:12px;color:#5a1a78;background:#ffd84a;padding:5px 10px;border-radius:999px}
+
+  .ball-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;overflow-y:auto;max-height:55vh;padding:4px 2px 8px}
+  .ball-pick{
+    aspect-ratio:1/1;border-radius:50%;border:none;cursor:pointer;
+    position:relative;display:flex;align-items:center;justify-content:center;
+    box-shadow:inset 0 -5px 8px rgba(0,0,0,.3),0 3px 8px rgba(40,10,80,.4);
+    overflow:hidden;
+  }
+  .ball-pick svg.brand, .ball-pick img.brand{width:55%;height:55%;object-fit:contain}
+  .ball-pick.selected{box-shadow:inset 0 -5px 8px rgba(0,0,0,.3),0 0 0 3px #ffd84a,0 0 18px rgba(255,216,74,.8)}
+  .ball-pick.disabled{opacity:.35;cursor:not-allowed}
+  .ball-pick.eliminated{opacity:.45;cursor:not-allowed;filter:grayscale(.7)}
+  .ball-pick.eliminated::after{
+    content:"✕";
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:28px;font-weight:900;
+    color:#fff;
+    text-shadow:0 0 4px rgba(0,0,0,.9), 0 2px 8px rgba(200,30,30,.9);
+    background:rgba(180,20,40,.35);
+  }
+  .ball-pick .check{
+    position:absolute;top:-3px;right:-3px;width:20px;height:20px;border-radius:50%;
+    background:#1ac850;color:#fff;font-size:12px;
+    display:none;align-items:center;justify-content:center;
+    border:2px solid #fff;
+  }
+  .ball-pick.selected .check{display:flex}
+  .ball-pick .name{
+    position:absolute;bottom:3px;font-size:7px;font-weight:700;
+    color:rgba(0,0,0,.75);
+    background:rgba(255,255,255,.8);padding:1px 3px;border-radius:3px;
+    max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    z-index:2;
+  }
+  .picker-actions{display:flex;gap:8px;margin-top:12px}
+  .picker-actions button{flex:1;min-height:44px;border:none;border-radius:12px;font-family:'Bungee',cursive;font-size:12px;cursor:pointer}
+  .btn-cancel{background:rgba(255,255,255,.25);color:#fff}
+  .btn-confirm{background:linear-gradient(180deg,#7be88a,#1ac850);color:#0a4a18}
+  .btn-confirm:disabled{background:rgba(255,255,255,.15);color:rgba(255,255,255,.4);cursor:not-allowed}
+
+  .picker-hint{
+    text-align:center;color:rgba(255,255,255,.85);font-size:10px;
+    padding:0 4px 6px;
+  }
+
+  .history-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;gap:6px;max-height:50vh}
+  .empty-state{text-align:center;color:rgba(255,255,255,.85);padding:30px 20px;font-size:13px}
+  .empty-state .big{font-size:42px;display:block;margin-bottom:6px}
+  .h-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.18);border-radius:12px;padding:8px 10px}
+  .h-num{font-family:'Bungee',cursive;font-size:10px;color:#fff;background:rgba(0,0,0,.25);padding:3px 6px;border-radius:6px;min-width:36px;text-align:center}
+  .h-winner{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden}
+  .h-winner svg, .h-winner img{width:65%;height:65%;object-fit:contain}
+  .h-info{flex:1 1 auto;min-width:0}
+  .h-info .name{font-weight:600;color:#fff;font-size:12px}
+  .h-info .vs{font-size:9px;color:rgba(255,255,255,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .leaderboard{margin-top:8px;padding:10px;border-radius:12px;background:rgba(255,255,255,.15)}
+  .leaderboard h3{margin:0 0 6px;font-family:'Bungee',cursive;font-size:10px;color:#ffd84a}
+  .leader-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:#fff}
+  .leader-row .ball-mini{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .leader-row .ball-mini svg, .leader-row .ball-mini img{width:65%;height:65%;object-fit:contain}
+  .leader-row .nm{flex:1 1 auto}
+  .leader-row .wn{font-family:'Bungee',cursive;color:#ffd84a;font-size:10px}
+
+  /* Result popup */
+  .result-overlay{
+    position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;
+    background:rgba(40,10,80,.7);padding:20px;
+  }
+  .result-overlay.open{display:flex;animation:fadein .2s}
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
+  .result-card{
+    background:linear-gradient(180deg,#ff9ed8 0%,#a96bff 50%,#6dc8ff 100%);
+    border-radius:24px;padding:20px;max-width:380px;width:100%;
+    text-align:center;
+    box-shadow:0 20px 60px rgba(40,10,80,.6),inset 0 2px 0 rgba(255,255,255,.4);
+    animation:popIn .35s cubic-bezier(.2,.9,.3,1.4);
+  }
+  @keyframes popIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+  .result-card h2{
+    font-family:'Bungee',cursive;font-size:18px;margin:0 0 4px;
+    color:#fff;letter-spacing:1.5px;
+    text-shadow:0 2px 4px rgba(80,30,120,.5);
+  }
+  .result-card .winner-block{
+    margin:14px 0 8px;padding:14px;border-radius:16px;
+    background:linear-gradient(135deg,#ffd84a,#ff9a3d);
+    color:#5a1a78;
+  }
+  .result-card .winner-block .crown{font-size:24px;display:block;margin-bottom:4px}
+  .result-card .winner-block .ball-big{
+    width:60px;height:60px;border-radius:50%;margin:6px auto;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    box-shadow:inset 0 -4px 6px rgba(0,0,0,.3),inset 0 3px 4px rgba(255,255,255,.6),0 4px 10px rgba(0,0,0,.3);
+  }
+  .result-card .winner-block .ball-big svg, .result-card .winner-block .ball-big img{width:65%;height:65%;object-fit:contain}
+  .result-card .winner-block .name{font-family:'Bungee',cursive;font-size:18px;letter-spacing:1px;margin:4px 0 0}
+  .result-card .winner-block .label{font-size:10px;letter-spacing:2px;font-family:'Bungee',cursive;opacity:.7}
+  .result-card .losers-block{
+    margin:8px 0;padding:10px;border-radius:14px;
+    background:rgba(0,0,0,.2);
+  }
+  .result-card .losers-block .label{
+    font-family:'Bungee',cursive;font-size:10px;letter-spacing:2px;
+    color:#ff6b6b;margin-bottom:6px;
+  }
+  .loser-row{
+    display:flex;align-items:center;gap:8px;padding:4px 6px;
+    background:rgba(180,20,40,.2);border-radius:10px;margin-bottom:4px;
+    color:#fff;font-size:13px;
+    position:relative;
+  }
+  .loser-row:last-child{margin-bottom:0}
+  .loser-row .ball-mini{
+    width:28px;height:28px;border-radius:50%;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    filter:grayscale(.5);opacity:.8;
+    box-shadow:inset 0 -2px 3px rgba(0,0,0,.3),inset 0 1px 2px rgba(255,255,255,.4);
+  }
+  .loser-row .ball-mini svg, .loser-row .ball-mini img{width:65%;height:65%;object-fit:contain}
+  .loser-row .x{
+    position:absolute;left:14px;top:50%;transform:translate(-50%,-50%);
+    color:#ff3030;font-weight:900;font-size:22px;
+    text-shadow:0 0 3px #fff, 0 0 6px rgba(255,48,48,.8);
+    pointer-events:none;
+  }
+  .loser-row .nm{flex:1 1 auto;text-align:left;font-weight:600}
+  .loser-row .tag{font-size:10px;color:#ffaaaa;font-family:'Bungee',cursive;letter-spacing:1px}
+  .result-card button.continue{
+    margin-top:8px;padding:12px 24px;border:none;border-radius:14px;
+    font-family:'Bungee',cursive;font-size:13px;letter-spacing:1.5px;cursor:pointer;
+    background:linear-gradient(180deg,#7be88a,#1ac850);
+    color:#0a4a18;box-shadow:0 4px 0 #0a6a18;
+    width:100%;
+  }
+
+  .bracket-overlay{position:fixed;inset:0;z-index:45;display:none;align-items:center;justify-content:center;background:rgba(40,10,80,.85);padding:16px}
+  .bracket-overlay.open{display:flex}
+  .bracket-card{
+    background:linear-gradient(180deg,#ff9ed8 0%,#a96bff 50%,#6dc8ff 100%);
+    border-radius:20px;padding:16px;max-width:520px;width:100%;
+    text-align:center;max-height:90vh;overflow-y:auto;
+  }
+  .bracket-card h2{font-family:'Bungee',cursive;font-size:16px;color:#fff;margin:0 0 10px}
+  .bracket-rounds{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+  .bracket-round{background:rgba(255,255,255,.18);border-radius:10px;padding:8px;min-width:110px}
+  .bracket-round .lbl{font-family:'Bungee',cursive;font-size:9px;color:#ffd84a;margin-bottom:4px}
+  .matchup{display:flex;flex-direction:column;gap:3px;margin-bottom:4px}
+  .competitor{display:flex;align-items:center;gap:5px;padding:3px 5px;border-radius:6px;background:rgba(255,255,255,.2);font-size:10px;color:#fff}
+  .competitor.winner{background:linear-gradient(180deg,#ffd84a,#ff9a3d);color:#5a1a78;font-weight:700}
+  .competitor.pending{opacity:.5}
+  .ball-tiny{width:16px;height:16px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .ball-tiny svg, .ball-tiny img{width:65%;height:65%;object-fit:contain}
+  .bracket-actions{display:flex;gap:8px;justify-content:center}
+  .bracket-actions button{padding:10px 20px;border:none;border-radius:12px;font-family:'Bungee',cursive;font-size:11px;cursor:pointer}
+  .btn-next{background:linear-gradient(180deg,#7be88a,#1ac850);color:#0a4a18}
+  .btn-quit{background:rgba(255,255,255,.25);color:#fff}
+  .champion-banner{
+    margin:10px 0;padding:12px;border-radius:14px;
+    background:linear-gradient(135deg,#ffd84a,#ff9a3d,#ff6fb3);
+    color:#5a1a78;font-family:'Bungee',cursive;
+  }
+  .champion-banner .ball-big{width:48px;height:48px;border-radius:50%;margin:6px auto;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff}
+  .champion-banner .ball-big svg, .champion-banner .ball-big img{width:65%;height:65%;object-fit:contain}
+
+  .confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden;display:none}
+  .confetti.show{display:block}
+  .confetti span{position:absolute;top:-20px;width:8px;height:12px;border-radius:2px;animation:fall linear forwards}
+  @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+
+  /* Inline confirm dialog (replaces native confirm) */
+  .confirm-overlay{
+    position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;
+    background:rgba(40,10,80,.7);padding:20px;
+  }
+  .confirm-overlay.open{display:flex}
+  .confirm-card{
+    background:linear-gradient(180deg,#ff9ed8 0%,#a96bff 100%);
+    border-radius:20px;padding:20px;max-width:320px;width:100%;text-align:center;
+    box-shadow:0 20px 60px rgba(40,10,80,.6);
+  }
+  .confirm-card h3{font-family:'Bungee',cursive;font-size:16px;color:#fff;margin:0 0 8px}
+  .confirm-card p{font-size:12px;color:rgba(255,255,255,.85);margin:0 0 14px}
+  .confirm-actions{display:flex;gap:8px}
+  .confirm-actions button{flex:1;padding:10px;border:none;border-radius:12px;font-family:'Bungee',cursive;font-size:11px;cursor:pointer}
+  .btn-no{background:rgba(255,255,255,.25);color:#fff}
+  .btn-yes{background:linear-gradient(180deg,#ff7070,#c81a1a);color:#fff;box-shadow:0 3px 0 #6a0a0a}
+</style>
+</head>
+<body>
+
+<div class="frame"></div>
+
+<div class="app">
+  <header>
+    <div class="logo"><h1>Pipe<span class="accent">Works</span> <span class="pop">Derby</span></h1></div>
+    <div class="head-btns">
+      <button class="icon-btn" id="soundBtn">🔊</button>
+      <button class="icon-btn" id="historyBtn">📜</button>
+    </div>
+  </header>
+
+  <div class="mode-bar">
+    <button class="mode-pill active" data-mode="quick">QUICK RACE</button>
+    <button class="mode-pill" data-mode="tourney">🏆 TOURNAMENT</button>
+  </div>
+
+  <div class="elim-bar" id="elimBar">
+    <span class="elim-label">ELIMINATE:</span>
+    <button class="elim-pill active" data-elim="1">1 LOSER</button>
+    <button class="elim-pill" data-elim="2">2 LOSERS</button>
+  </div>
+
+  <div class="track-wrap">
+    <div class="scoreboard">
+      <div class="race-num" id="raceNum">RACE 01</div>
+      <div class="winner-tag" id="winnerTag">🏆 WINNER!</div>
+    </div>
+    <div class="svg-box">
+      <svg class="svg-track" id="track" viewBox="0 0 600 700" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="platform" id="platform">
+      <div class="slot"></div>
+      <div class="slot"></div>
+      <div class="slot"></div>
+    </div>
+    <div class="actions">
+      <button class="picker-btn" id="pickBtn">🎱 PICK BALLS</button>
+      <button class="lever-btn" id="leverBtn" disabled>🎮 PULL LEVER!</button>
+      <button class="reset-btn" id="resetBtn" title="Reset everything">↻</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="picker">
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <h2 id="pickerTitle">CHOOSE 3 RACERS</h2>
+      <div class="count"><span id="pickCount">0</span>/<span id="pickMax">3</span></div>
+    </div>
+    <div class="picker-hint" id="pickerHint"></div>
+    <div class="picker-toolbar">
+      <button class="randomize-btn" id="randomizeBtn">🎲 RANDOMIZE PICK</button>
+      <button class="clear-pick-btn" id="clearPickBtn">CLEAR</button>
+    </div>
+    <div class="ball-grid" id="ballGrid"></div>
+    <div class="picker-actions">
+      <button class="btn-cancel" id="cancelPick">CANCEL</button>
+      <button class="btn-confirm" id="confirmPick" disabled>LOCK IN!</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="historySheet">
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <h2>RACE HISTORY</h2>
+      <div class="count" id="historyCount">0</div>
+    </div>
+    <div class="history-list" id="historyList"></div>
+    <div class="leaderboard" id="leaderboard"></div>
+    <div class="picker-actions">
+      <button class="btn-cancel" id="closeHistory">CLOSE</button>
+      <button class="btn-confirm" id="clearHistoryBtn">CLEAR ALL</button>
+    </div>
+  </div>
+</div>
+
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-card" id="resultCard"></div>
+</div>
+
+<div class="bracket-overlay" id="bracketOverlay">
+  <div class="bracket-card" id="bracketCard"></div>
+</div>
+
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-card">
+    <h3 id="confirmTitle">Are you sure?</h3>
+    <p id="confirmMsg"></p>
+    <div class="confirm-actions">
+      <button class="btn-no" id="confirmNo">CANCEL</button>
+      <button class="btn-yes" id="confirmYes">YES</button>
+    </div>
+  </div>
+</div>
+
+<div class="confetti" id="confetti"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ============================================================
+     INLINE BRAND-STYLE ICONS — simple, recognizable shapes
+     drawn with SVG paths/shapes. 24x24 viewBox.
+  ============================================================ */
+  function svgIcon(content, fillColor){
+    return '<svg class="brand" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="' + (fillColor||'#000') + '">' + content + '</svg>';
+  }
+  // Each icon is a content string (paths/shapes inside SVG)
+  var ICONS = {
+    apple:     '<path d="M16.5 3c-.3 1.4-1.1 2.6-2 3.4-.9.7-2 1.3-3 1.2-.2-1.4.4-2.7 1.3-3.5C13.7 3.2 15.1 2.6 16.5 3zM20 17.6c-.5 1.1-.8 1.6-1.4 2.6-.9 1.3-2.1 2.9-3.6 2.9-1.4 0-1.7-.9-3.6-.9s-2.2.9-3.6.9c-1.5 0-2.7-1.5-3.5-2.8C2 17.5 1.7 12 4 9.1c1.6-2 4.1-3.3 6.5-1.9 1 .6 1.5.9 2 .9.5 0 1-.4 2.1-1 1.4-.7 3.4-1.1 5 .3-4.3 2.4-3.6 8.7.4 10.2z"/>',
+    google:    '<path d="M21.8 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.5c-.2 1.3-1 2.4-2 3.1v2.6h3.3c1.9-1.8 3-4.4 3-7.6z" fill="#4285F4"/><path d="M12 22c2.7 0 5-.9 6.6-2.4l-3.3-2.6c-.9.6-2 1-3.4 1-2.6 0-4.8-1.7-5.6-4.1H3v2.6C4.6 19.7 8 22 12 22z" fill="#34A853"/><path d="M6.4 13.9c-.2-.6-.3-1.3-.3-1.9s.1-1.3.3-1.9V7.5H3c-.7 1.3-1 2.9-1 4.5s.4 3.2 1 4.5l3.4-2.6z" fill="#FBBC05"/><path d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.9-2.9C17 2.9 14.7 2 12 2 8 2 4.6 4.3 3 7.5l3.4 2.6c.8-2.4 3-4.2 5.6-4.2z" fill="#EA4335"/>',
+    microsoft: '<rect x="2" y="2" width="9" height="9" fill="#F25022"/><rect x="13" y="2" width="9" height="9" fill="#7FBA00"/><rect x="2" y="13" width="9" height="9" fill="#00A4EF"/><rect x="13" y="13" width="9" height="9" fill="#FFB900"/>',
+    amazon:    '<path d="M14.6 14.4c-1.6 1.2-3.9 1.8-5.9 1.8-2.8 0-5.4-1-7.3-2.8-.2-.1 0-.4.2-.3 2 1.2 4.5 1.9 7.1 1.9 1.7 0 3.6-.4 5.4-1.1.3-.1.5.2.5.5zM15.7 13.2c-.2-.3-1.4-.1-1.9-.1-.2 0-.2-.1-.1-.2.9-.7 2.5-.5 2.7-.3.2.3-.1 1.8-.9 2.6-.1.1-.3.1-.2-.1.1-.4.6-1.6.4-1.9z" fill="#FF9900"/><path d="M14 6.6V5.7c0-.1.1-.2.2-.2h4c.1 0 .2.1.2.2v.8c0 .1-.1.3-.3.5l-2 2.9c.7-.1 1.5.1 2.2.5.2.1.2.2.2.4v.9c0 .1-.1.3-.3.2-1.2-.6-2.7-.7-4 0-.1.1-.3-.1-.3-.2v-.8c0-.2 0-.4.2-.6l2.4-3.4h-2.1c-.2 0-.3-.1-.3-.3zM5.6 13H4.4c-.1 0-.2-.1-.2-.2V5.8c0-.1.1-.2.2-.2h1.1c.1 0 .2.1.2.2v.9c.3-.7.8-1.1 1.6-1.1.8 0 1.3.4 1.6 1.1.3-.7.9-1.1 1.7-1.1.5 0 1.1.2 1.5.7.4.5.3 1.3.3 2v4.5c0 .1-.1.2-.2.2h-1.2c-.1 0-.2-.1-.2-.2V8.9c0-.3 0-1 0-1.3-.1-.4-.4-.5-.7-.5-.3 0-.6.2-.7.5-.1.3-.1 1-.1 1.3v3.9c0 .1-.1.2-.2.2H7.7c-.1 0-.2-.1-.2-.2V8.9c0-.7.1-1.8-.8-1.8-.9 0-.9 1.1-.9 1.8v3.9c0 .1-.1.2-.2.2z" fill="#fff"/>',
+    meta:      '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1 13c-1.7 1.7-3.5 2-4.5 1-1-1-1-2.5 0-4 1-1.5 2-2.5 3-3.5s2-1.5 3.5-1.5c1.5 0 2.5 1 3.5 2.5l1.5 2.5c.5 1 .5 2 0 2.5s-1.5.5-2.5 0L13 12c-.5-.5-1-.5-1.5 0L11 15z"/>',
+    netflix:   '<path d="M5 2v20l3-1V13l5 11 3-1V2l-3 1v9L8 1z" fill="#E50914"/>',
+    spotify:   '<circle cx="12" cy="12" r="10" fill="#1DB954"/><path d="M16.5 16.5c-.2.3-.5.4-.8.2-2.3-1.4-5.1-1.7-8.5-.9-.3.1-.6-.1-.7-.4s.1-.6.4-.7c3.7-.8 6.9-.5 9.4 1.1.3.1.4.5.2.7zm1.2-2.6c-.2.4-.7.5-1 .3-2.6-1.6-6.5-2.1-9.6-1.1-.4.1-.8-.1-.9-.5-.1-.4.1-.8.5-.9 3.5-1.1 7.8-.6 10.8 1.3.3.2.4.6.2.9zm.1-2.7c-3.1-1.9-8.3-2-11.3-1.1-.5.1-1-.1-1.1-.6s.1-1 .6-1.1c3.4-1 9.1-.8 12.7 1.3.4.3.6.9.3 1.3-.3.4-.8.5-1.2.2z"/>',
+    youtube:   '<rect x="2" y="5" width="20" height="14" rx="3" fill="#FF0000"/><path d="M10 9v6l5-3z" fill="#fff"/>',
+    tiktok:    '<path d="M19.5 8.5c-1.7 0-3.2-.6-4.4-1.6v8.6c0 3-2.4 5.5-5.5 5.5S4.1 18.5 4.1 15.5 6.5 10 9.6 10c.4 0 .8 0 1.1.1v3c-.4-.1-.7-.2-1.1-.2-1.4 0-2.6 1.1-2.6 2.6s1.2 2.6 2.6 2.6 2.6-1.1 2.6-2.6V2.5h2.9c0 .3 0 .5.1.8.2 1.6 1.2 3 2.6 3.7.6.3 1.3.5 2 .5v3z" fill="#000"/><path d="M19.5 5.5c-1.7 0-3.2-.6-4.4-1.6v8.6c0 3-2.4 5.5-5.5 5.5S4.1 15.5 4.1 12.5 6.5 7 9.6 7c.4 0 .8 0 1.1.1v3c-.4-.1-.7-.2-1.1-.2-1.4 0-2.6 1.1-2.6 2.6s1.2 2.6 2.6 2.6 2.6-1.1 2.6-2.6V0h2.9c.3 2.5 2.4 4.5 4.9 4.5v1z" fill="#25F4EE" opacity=".7"/>',
+    instagram: '<rect x="3" y="3" width="18" height="18" rx="5" fill="url(#igGrad)"/><defs><linearGradient id="igGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#feda77"/><stop offset=".5" stop-color="#f58529"/><stop offset="1" stop-color="#dd2a7b"/></linearGradient></defs><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/>',
+    discord:   '<path d="M19.5 5.5c-1.5-.7-3-1.2-4.7-1.4-.2.4-.4.9-.6 1.3-1.7-.3-3.5-.3-5.2 0-.2-.4-.4-.9-.6-1.3-1.6.3-3.2.7-4.7 1.4-3 4.4-3.8 8.7-3.4 12.9 1.9 1.4 3.8 2.3 5.6 2.8.4-.6.9-1.3 1.2-2-.7-.3-1.3-.6-1.9-1l.5-.4c3.6 1.7 7.5 1.7 11.1 0l.5.4c-.6.4-1.2.7-1.9 1 .4.7.8 1.4 1.2 2 1.8-.6 3.7-1.5 5.6-2.8.5-4.9-.8-9.1-3.4-12.9zM8.4 14.7c-1.1 0-2.1-1-2.1-2.3s.9-2.3 2.1-2.3c1.1 0 2.1 1 2.1 2.3s-.9 2.3-2.1 2.3zm7.2 0c-1.1 0-2.1-1-2.1-2.3s.9-2.3 2.1-2.3c1.1 0 2.1 1 2.1 2.3s-.9 2.3-2.1 2.3z" fill="#5865F2"/>',
+    roblox:    '<rect x="2" y="2" width="20" height="20" rx="2" transform="rotate(15 12 12)" fill="#000"/><rect x="9" y="9" width="6" height="6" transform="rotate(15 12 12)" fill="#fff"/>',
+    minecraft: '<rect x="2" y="2" width="20" height="20" fill="#7CB342"/><rect x="2" y="2" width="20" height="6" fill="#43A047"/><rect x="6" y="10" width="3" height="4" fill="#5D4037"/><rect x="15" y="10" width="3" height="4" fill="#5D4037"/><rect x="6" y="10" width="3" height="2" fill="#fff"/><rect x="15" y="10" width="3" height="2" fill="#fff"/><rect x="7" y="11" width="1" height="1" fill="#000"/><rect x="16" y="11" width="1" height="1" fill="#000"/>',
+    nintendo:  '<rect x="3" y="2" width="8" height="20" rx="2" fill="#E60012"/><rect x="13" y="2" width="8" height="20" rx="2" fill="#1F1F1F"/><circle cx="7" cy="8" r="2" fill="#fff"/><rect x="6" y="14" width="2" height="2" fill="#fff"/><rect x="5" y="15" width="4" height="2" rx="1" fill="#fff"/><circle cx="17" cy="16" r="1.5" fill="#E60012"/>',
+    playstation: '<path d="M9 2v18.5l4-1V8c1.5 0 2 .8 2 2v3l4-1V8c0-3-2-4.5-5-5L9 2zM3 17.5l5-1.5V13l-5 1.5v3zm12-1.5v3l5-1.5V14l-5 2z" fill="#003791"/>',
+    xbox:      '<circle cx="12" cy="12" r="10" fill="#107C10"/><path d="M7 18c2-3 3-5 5-5s3 2 5 5c-1.5 1.5-3.3 2-5 2s-3.5-.5-5-2zM5 16c-1-1.5-1.5-3-1.5-4 0-2 1-4 2.5-5 1 .5 2.5 2 4 4-1.5 2-3.5 4-5 5zm14 0c-1.5-1-3.5-3-5-5 1.5-2 3-3.5 4-4 1.5 1 2.5 3 2.5 5 0 1-.5 2.5-1.5 4z" fill="#fff"/>',
+    lego:      '<rect x="3" y="6" width="18" height="14" rx="1" fill="#FFD800"/><circle cx="7.5" cy="6" r="2" fill="#FFD800" stroke="#c5a700" stroke-width=".5"/><circle cx="12" cy="6" r="2" fill="#FFD800" stroke="#c5a700" stroke-width=".5"/><circle cx="16.5" cy="6" r="2" fill="#FFD800" stroke="#c5a700" stroke-width=".5"/><circle cx="7.5" cy="4.5" r="1" fill="#fff" opacity=".4"/><circle cx="12" cy="4.5" r="1" fill="#fff" opacity=".4"/><circle cx="16.5" cy="4.5" r="1" fill="#fff" opacity=".4"/>',
+    pokemon:   '<circle cx="12" cy="12" r="10" fill="#fff"/><path d="M2 12h20a10 10 0 1 0-20 0z" fill="#FF1A1A"/><circle cx="12" cy="12" r="10" fill="none" stroke="#000" stroke-width="1.5"/><path d="M2 12h20" stroke="#000" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="#fff" stroke="#000" stroke-width="1.5"/><circle cx="12" cy="12" r="1.2" fill="#fff" stroke="#000" stroke-width="1"/>',
+    tesla:     '<path d="M12 4l-4 2c-2 .3-4 1-4 1l1 2 4-1 3 13 3-13 4 1 1-2s-2-.7-4-1l-4-2zm0 .8L14.5 6h-5L12 4.8z" fill="#CC0000"/>',
+    github:    '<path d="M12 2C6.5 2 2 6.5 2 12c0 4.4 2.9 8.2 6.8 9.5.5.1.7-.2.7-.5v-2c-2.8.6-3.4-1.2-3.4-1.2-.5-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.4 1.1 3 .8.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1 .8-.2 1.7-.3 2.5-.3s1.7.1 2.5.3c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5C19.1 20.2 22 16.4 22 12c0-5.5-4.5-10-10-10z" fill="#181717"/>'
+  };
+
+  /* ============================================================
+     BRAND POOL — 100 brands. The first 20 have detailed inline SVG
+     icons (defined in ICONS above). The other 80 use a stylized
+     monogram badge with their brand color. On every reset, we
+     randomly sample ROSTER_SIZE from this pool to be the active roster.
+  ============================================================ */
+  var BRAND_POOL = [
+    // Brands with detailed icons
+    {id:'apple',     name:'Apple',       mono:'',  color:'#000000', bg:'#ffffff'},
+    {id:'google',    name:'Google',      mono:'G', color:'#4285F4', bg:'#ffffff'},
+    {id:'microsoft', name:'Microsoft',   mono:'',  color:'#5E5E5E', bg:'#ffffff'},
+    {id:'amazon',    name:'Amazon',      mono:'a', color:'#FF9900', bg:'#232f3e'},
+    {id:'meta',      name:'Meta',        mono:'', color:'#0467DF', bg:'#ffffff'},
+    {id:'netflix',   name:'Netflix',     mono:'N', color:'#E50914', bg:'#000000'},
+    {id:'spotify',   name:'Spotify',     mono:'', color:'#1DB954', bg:'#000000'},
+    {id:'youtube',   name:'YouTube',     mono:'', color:'#FF0000', bg:'#ffffff'},
+    {id:'tiktok',    name:'TikTok',      mono:'', color:'#000000', bg:'#ffffff'},
+    {id:'instagram', name:'Instagram',   mono:'', color:'#E4405F', bg:'#ffffff'},
+    {id:'discord',   name:'Discord',     mono:'', color:'#5865F2', bg:'#ffffff'},
+    {id:'roblox',    name:'Roblox',      mono:'R', color:'#000000', bg:'#ffffff'},
+    {id:'minecraft', name:'Minecraft',   mono:'', color:'#62B47A', bg:'#ffffff'},
+    {id:'nintendo',  name:'Nintendo',    mono:'N', color:'#E60012', bg:'#ffffff'},
+    {id:'playstation',name:'PlayStation',mono:'P', color:'#003791', bg:'#ffffff'},
+    {id:'xbox',      name:'Xbox',        mono:'X', color:'#107C10', bg:'#ffffff'},
+    {id:'lego',      name:'LEGO',        mono:'L', color:'#FFD800', bg:'#000000'},
+    {id:'pokemon',   name:'Pokémon',     mono:'P', color:'#FF1A1A', bg:'#ffffff'},
+    {id:'tesla',     name:'Tesla',       mono:'T', color:'#CC0000', bg:'#ffffff'},
+    {id:'github',    name:'GitHub',      mono:'', color:'#181717', bg:'#ffffff'},
+    // 80 more brands using monogram badges
+    {id:'twitter',   name:'X (Twitter)', mono:'X', color:'#000000', bg:'#ffffff'},
+    {id:'snapchat',  name:'Snapchat',    mono:'S', color:'#FFFC00', bg:'#000000'},
+    {id:'pinterest', name:'Pinterest',   mono:'P', color:'#E60023', bg:'#ffffff'},
+    {id:'whatsapp',  name:'WhatsApp',    mono:'W', color:'#25D366', bg:'#ffffff'},
+    {id:'telegram',  name:'Telegram',    mono:'T', color:'#0088CC', bg:'#ffffff'},
+    {id:'reddit',    name:'Reddit',      mono:'R', color:'#FF4500', bg:'#ffffff'},
+    {id:'twitch',    name:'Twitch',      mono:'T', color:'#9146FF', bg:'#ffffff'},
+    {id:'linkedin',  name:'LinkedIn',    mono:'in',color:'#0A66C2', bg:'#ffffff'},
+    {id:'slack',     name:'Slack',       mono:'#', color:'#4A154B', bg:'#ffffff'},
+    {id:'zoom',      name:'Zoom',        mono:'Z', color:'#2D8CFF', bg:'#ffffff'},
+    {id:'paypal',    name:'PayPal',      mono:'P', color:'#003087', bg:'#ffffff'},
+    {id:'venmo',     name:'Venmo',       mono:'V', color:'#3D95CE', bg:'#ffffff'},
+    {id:'stripe',    name:'Stripe',      mono:'S', color:'#635BFF', bg:'#ffffff'},
+    {id:'visa',      name:'Visa',        mono:'V', color:'#1A1F71', bg:'#ffffff'},
+    {id:'mastercard',name:'Mastercard',  mono:'M', color:'#EB001B', bg:'#ffffff'},
+    {id:'uber',      name:'Uber',        mono:'U', color:'#000000', bg:'#ffffff'},
+    {id:'lyft',      name:'Lyft',        mono:'L', color:'#FF00BF', bg:'#ffffff'},
+    {id:'doordash',  name:'DoorDash',    mono:'D', color:'#FF3008', bg:'#ffffff'},
+    {id:'airbnb',    name:'Airbnb',      mono:'A', color:'#FF5A5F', bg:'#ffffff'},
+    {id:'starbucks', name:'Starbucks',   mono:'S', color:'#00704A', bg:'#ffffff'},
+    {id:'mcdonalds', name:"McDonald's",  mono:'M', color:'#FFC72C', bg:'#DA291C'},
+    {id:'kfc',       name:'KFC',         mono:'K', color:'#F40027', bg:'#ffffff'},
+    {id:'burgerking',name:'Burger King', mono:'B', color:'#D62300', bg:'#ffffff'},
+    {id:'subway',    name:'Subway',      mono:'S', color:'#008C15', bg:'#FFC600'},
+    {id:'pizza',     name:'Pizza Hut',   mono:'P', color:'#EE3124', bg:'#ffffff'},
+    {id:'cocacola',  name:'Coca-Cola',   mono:'C', color:'#F40000', bg:'#ffffff'},
+    {id:'pepsi',     name:'Pepsi',       mono:'P', color:'#004B93', bg:'#ffffff'},
+    {id:'sprite',    name:'Sprite',      mono:'S', color:'#00B140', bg:'#ffffff'},
+    {id:'fanta',     name:'Fanta',       mono:'F', color:'#FF6600', bg:'#0066B3'},
+    {id:'redbull',   name:'Red Bull',    mono:'R', color:'#FB0007', bg:'#FFC900'},
+    {id:'monster',   name:'Monster',     mono:'M', color:'#00FF00', bg:'#000000'},
+    {id:'gatorade',  name:'Gatorade',    mono:'G', color:'#F36C21', bg:'#ffffff'},
+    {id:'oreo',      name:'Oreo',        mono:'O', color:'#0066B3', bg:'#ffffff'},
+    {id:'kitkat',    name:'KitKat',      mono:'K', color:'#D70029', bg:'#ffffff'},
+    {id:'snickers',  name:'Snickers',    mono:'S', color:'#5C2C1A', bg:'#FFCB05'},
+    {id:'mars',      name:'Mars',        mono:'M', color:'#000000', bg:'#FFCB05'},
+    {id:'mm',        name:"M&M's",       mono:'M', color:'#FFCC00', bg:'#532A1B'},
+    {id:'hershey',   name:'Hershey',     mono:'H', color:'#653716', bg:'#ffffff'},
+    {id:'nutella',   name:'Nutella',     mono:'N', color:'#000000', bg:'#FFFFFF'},
+    {id:'cheerios',  name:'Cheerios',    mono:'C', color:'#FFC72C', bg:'#FFFFFF'},
+    {id:'pringles',  name:'Pringles',    mono:'P', color:'#D80000', bg:'#FFCB05'},
+    {id:'doritos',   name:'Doritos',     mono:'D', color:'#E2231A', bg:'#000000'},
+    {id:'lays',      name:"Lay's",       mono:'L', color:'#FFD700', bg:'#E2231A'},
+    {id:'cheetos',   name:'Cheetos',     mono:'C', color:'#F37021', bg:'#ffffff'},
+    {id:'goldfish',  name:'Goldfish',    mono:'G', color:'#FF6600', bg:'#ffffff'},
+    {id:'nike',      name:'Nike',        mono:'N', color:'#000000', bg:'#ffffff'},
+    {id:'adidas',    name:'Adidas',      mono:'A', color:'#000000', bg:'#ffffff'},
+    {id:'puma',      name:'Puma',        mono:'P', color:'#000000', bg:'#ffffff'},
+    {id:'underarmour',name:'UA',         mono:'UA',color:'#000000', bg:'#ffffff'},
+    {id:'newbalance',name:'NB',          mono:'NB',color:'#CF0A2C', bg:'#ffffff'},
+    {id:'reebok',    name:'Reebok',      mono:'R', color:'#000000', bg:'#ffffff'},
+    {id:'levis',     name:"Levi's",      mono:'L', color:'#E2231A', bg:'#ffffff'},
+    {id:'gap',       name:'Gap',         mono:'G', color:'#002A5C', bg:'#ffffff'},
+    {id:'hm',        name:'H&M',         mono:'H', color:'#E50010', bg:'#ffffff'},
+    {id:'uniqlo',    name:'Uniqlo',      mono:'U', color:'#FF0000', bg:'#ffffff'},
+    {id:'zara',      name:'Zara',        mono:'Z', color:'#000000', bg:'#ffffff'},
+    {id:'target',    name:'Target',      mono:'T', color:'#CC0000', bg:'#ffffff'},
+    {id:'walmart',   name:'Walmart',     mono:'W', color:'#FFC220', bg:'#0071CE'},
+    {id:'costco',    name:'Costco',      mono:'C', color:'#E32B2B', bg:'#005DAA'},
+    {id:'ikea',      name:'IKEA',        mono:'I', color:'#FFDA1A', bg:'#0058AB'},
+    {id:'fedex',     name:'FedEx',       mono:'F', color:'#FF6600', bg:'#4D148C'},
+    {id:'ups',       name:'UPS',         mono:'U', color:'#FFB500', bg:'#351C15'},
+    {id:'usps',      name:'USPS',        mono:'P', color:'#004B87', bg:'#EE3124'},
+    {id:'dhl',       name:'DHL',         mono:'D', color:'#FFCC00', bg:'#D40511'},
+    {id:'bmw',       name:'BMW',         mono:'M', color:'#0066B1', bg:'#ffffff'},
+    {id:'mercedes',  name:'Mercedes',    mono:'M', color:'#000000', bg:'#ffffff'},
+    {id:'audi',      name:'Audi',        mono:'A', color:'#000000', bg:'#ffffff'},
+    {id:'toyota',    name:'Toyota',      mono:'T', color:'#EB0A1E', bg:'#ffffff'},
+    {id:'honda',     name:'Honda',       mono:'H', color:'#CC0000', bg:'#ffffff'},
+    {id:'ford',      name:'Ford',        mono:'F', color:'#003478', bg:'#ffffff'},
+    {id:'chevy',     name:'Chevrolet',   mono:'C', color:'#FFC72C', bg:'#000000'},
+    {id:'volkswagen',name:'VW',          mono:'VW',color:'#001E50', bg:'#ffffff'},
+    {id:'porsche',   name:'Porsche',     mono:'P', color:'#000000', bg:'#FFD700'},
+    {id:'ferrari',   name:'Ferrari',     mono:'F', color:'#000000', bg:'#FFEF00'},
+    {id:'lambo',     name:'Lambo',       mono:'L', color:'#000000', bg:'#FFD700'},
+    {id:'figma',     name:'Figma',       mono:'F', color:'#F24E1E', bg:'#ffffff'},
+    {id:'notion',    name:'Notion',      mono:'N', color:'#000000', bg:'#ffffff'},
+    {id:'dropbox',   name:'Dropbox',     mono:'D', color:'#0061FF', bg:'#ffffff'},
+    {id:'asana',     name:'Asana',       mono:'A', color:'#F06A6A', bg:'#ffffff'},
+    {id:'trello',    name:'Trello',      mono:'T', color:'#0079BF', bg:'#ffffff'},
+    {id:'jira',      name:'Jira',        mono:'J', color:'#0052CC', bg:'#ffffff'},
+    {id:'gitlab',    name:'GitLab',      mono:'G', color:'#FC6D26', bg:'#ffffff'},
+    {id:'bitbucket', name:'Bitbucket',   mono:'B', color:'#2684FF', bg:'#ffffff'},
+    {id:'docker',    name:'Docker',      mono:'D', color:'#2496ED', bg:'#ffffff'},
+    {id:'aws',       name:'AWS',         mono:'A', color:'#FF9900', bg:'#232F3E'},
+    {id:'azure',     name:'Azure',       mono:'A', color:'#0078D4', bg:'#ffffff'},
+    {id:'cloudflare',name:'Cloudflare',  mono:'C', color:'#F38020', bg:'#ffffff'},
+    {id:'mongodb',   name:'MongoDB',     mono:'M', color:'#47A248', bg:'#ffffff'},
+    {id:'firebase',  name:'Firebase',    mono:'F', color:'#FFCA28', bg:'#039BE5'},
+    {id:'vercel',    name:'Vercel',      mono:'V', color:'#000000', bg:'#ffffff'},
+    {id:'react',     name:'React',       mono:'R', color:'#61DAFB', bg:'#20232A'},
+    {id:'angular',   name:'Angular',     mono:'A', color:'#DD0031', bg:'#ffffff'},
+    {id:'vue',       name:'Vue',         mono:'V', color:'#4FC08D', bg:'#ffffff'},
+    {id:'nodejs',    name:'Node.js',     mono:'N', color:'#339933', bg:'#ffffff'},
+    {id:'python',    name:'Python',      mono:'Py',color:'#FFD43B', bg:'#3776AB'},
+    {id:'rust',      name:'Rust',        mono:'R', color:'#000000', bg:'#FFB300'},
+    {id:'go',        name:'Go',          mono:'Go',color:'#00ADD8', bg:'#ffffff'},
+    {id:'swift',     name:'Swift',       mono:'S', color:'#FA7343', bg:'#ffffff'}
+  ];
+
+  // BALLS = the active brands for this session (size = ROSTER_SIZE).
+  // Sampled randomly from BRAND_POOL on every full reset.
+  var BALLS = [];
+
+  var ROSTER_SIZE = 30;
+
+  function pickRandomRoster(){
+    var pool = BRAND_POOL.slice();
+    // Fisher-Yates shuffle
+    for(var i = pool.length-1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i+1));
+      var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+    }
+    BALLS = pool.slice(0, ROSTER_SIZE);
+    saveRoster();
+  }
+
+  function loadRoster(){
+    try {
+      var raw = localStorage.getItem('pwd-roster');
+      if(raw){
+        var ids = JSON.parse(raw);
+        if(Array.isArray(ids) && ids.length === ROSTER_SIZE){
+          var found = ids.map(function(id){
+            for(var k=0;k<BRAND_POOL.length;k++) if(BRAND_POOL[k].id===id) return BRAND_POOL[k];
+            return null;
+          }).filter(Boolean);
+          if(found.length === ROSTER_SIZE){ BALLS = found; return true; }
+        }
+      }
+    } catch(e){}
+    return false;
+  }
+  function saveRoster(){
+    try { localStorage.setItem('pwd-roster', JSON.stringify(BALLS.map(function(b){return b.id;}))); } catch(e){}
+  }
+
+  // Map brand id -> simpleicons CDN slug (only when different from id).
+  // simpleicons.org slugs sometimes differ from human-readable names.
+  var SLUG_OVERRIDES = {
+    nintendo: 'nintendoswitch',
+    twitter:  'x',
+    pizza:    'pizzahut',
+    cocacola: 'cocacola',
+    redbull:  'redbull',
+    mm:       'mmm',
+    underarmour: 'underarmour',
+    newbalance:  'newbalance',
+    burgerking:  'burgerking',
+    chevy:    'chevrolet',
+    lambo:    'lamborghini',
+    volkswagen: 'volkswagen',
+    nodejs:   'nodedotjs'
+  };
+  function brandSlug(ball){
+    return SLUG_OVERRIDES[ball.id] || ball.id;
+  }
+
+  // Build an <img> tag pointing at the Simple Icons CDN.
+  // If the image fails to load (CDN blocked, slug missing, etc.),
+  // onerror swaps in the inline icon or monogram.
+  // We use a global registry keyed by a unique number so the
+  // onerror handler can find the right ball without inline JSON.
+  var FALLBACK_REGISTRY = {};
+  var fallbackCounter = 0;
+  // Expose globally for inline onerror
+  window.__pwdFallback = function(imgEl, key){
+    try {
+      var html = FALLBACK_REGISTRY[key];
+      if(!html) return;
+      var parent = imgEl.parentNode;
+      if(!parent) return;
+      // Replace img with a wrapper containing the inline SVG
+      var wrap = document.createElement('span');
+      wrap.style.display = 'flex';
+      wrap.style.alignItems = 'center';
+      wrap.style.justifyContent = 'center';
+      wrap.style.width = '100%';
+      wrap.style.height = '100%';
+      wrap.innerHTML = html;
+      parent.replaceChild(wrap, imgEl);
+    } catch(e){}
+  };
+
+  function inlineFallbackHTML(ball){
+    var content = ICONS[ball.id];
+    if(content){
+      return svgIcon(content, ball.color);
+    }
+    var mono = ball.mono || ball.name.charAt(0).toUpperCase();
+    var fontSize = mono.length > 1 ? 11 : 16;
+    return '<svg class="brand" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+      '<text x="12" y="12" text-anchor="middle" dominant-baseline="central" ' +
+      'font-family="Bungee, system-ui, sans-serif" font-weight="900" ' +
+      'font-size="' + fontSize + '" fill="' + ball.color + '">' + mono + '</text>' +
+      '</svg>';
+  }
+
+  function ballIconHTML(ball){
+    var slug = brandSlug(ball);
+    var hex = ball.color.replace('#','');
+    var url = 'https://cdn.simpleicons.org/' + slug + '/' + hex;
+    var key = 'k' + (fallbackCounter++);
+    FALLBACK_REGISTRY[key] = inlineFallbackHTML(ball);
+    // Note: img is styled by parent CSS (.brand class on svg). For the
+    // <img>, we mirror those dimensions by inheriting from the parent.
+    return '<img class="brand" src="' + url + '" alt="' +
+      ball.name.replace(/"/g,'&quot;') +
+      '" loading="lazy" onerror="window.__pwdFallback(this,\'' + key + '\');"/>';
+  }
+
+  /* ============================================================
+     STATE
+  ============================================================ */
+  var mode = 'quick';
+  var elimCount = 1;          // 1 or 2 losers eliminated per quick race
+  var trackSeed = Date.now(); // changes every race so pipes look different
+  var selected = [];
+  var racers = [];
+  var raceNumber = 1;
+  var racing = false;
+  var animationId = null;
+  var soundOn = true;
+  var history = [];
+  var tourney = null;
+  var eliminated = {};   // map of id -> true. resets on full reset
+
+  /* ============================================================
+     SOUND
+  ============================================================ */
+  var audioCtx = null;
+  function getAudio(){
+    if(!audioCtx){ try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+    return audioCtx;
+  }
+  function playTone(o){
+    if(!soundOn) return;
+    var ctx = getAudio(); if(!ctx) return;
+    var t0 = ctx.currentTime + (o.delay||0);
+    var osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = o.type||'sine'; osc.frequency.setValueAtTime(o.freq||440, t0);
+    if(o.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20,(o.freq||440)+o.slide), t0+(o.dur||.15));
+    g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(o.vol||.15, t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+(o.dur||.15));
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t0); osc.stop(t0+(o.dur||.15)+0.02);
+  }
+  function playNoise(o){
+    if(!soundOn) return;
+    var ctx = getAudio(); if(!ctx) return;
+    var dur = o.dur||.3, vol = o.vol||.08;
+    var t0 = ctx.currentTime, len = Math.floor(ctx.sampleRate*dur);
+    var buf = ctx.createBuffer(1,len,ctx.sampleRate);
+    var d = buf.getChannelData(0);
+    for(var i=0;i<len;i++) d[i] = (Math.random()*2-1)*(1-i/len);
+    var src = ctx.createBufferSource(); src.buffer = buf;
+    var f = ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value = o.filter||800;
+    var gn = ctx.createGain();
+    gn.gain.setValueAtTime(vol,t0);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    src.connect(f).connect(gn).connect(ctx.destination);
+    src.start(t0); src.stop(t0+dur);
+  }
+  var SFX = {
+    click:function(){playTone({freq:600,dur:.06,type:'square',vol:.08})},
+    pop:function(){playTone({freq:800,dur:.12,vol:.12,slide:600})},
+    whoosh:function(){playNoise({dur:.5,vol:.1,filter:1200});playTone({freq:200,slide:400,dur:.5,vol:.06})},
+    steam:function(){playNoise({dur:.6,vol:.06,filter:2400})},
+    tick:function(){playTone({freq:1200,dur:.04,type:'square',vol:.05})},
+    win:function(){[523,659,784,1047].forEach(function(f,i){playTone({freq:f,dur:.18,type:'triangle',vol:.15,delay:i*.1})})},
+    lose:function(){[400,300].forEach(function(f,i){playTone({freq:f,dur:.25,type:'sawtooth',vol:.08,delay:i*.15})})},
+    champion:function(){[523,659,784,1047,784,1047,1319].forEach(function(f,i){playTone({freq:f,dur:.22,type:'triangle',vol:.16,delay:i*.13})})},
+    bracket:function(){playTone({freq:440,dur:.2,type:'triangle',vol:.12,slide:200})}
+  };
+
+  /* ============================================================
+     PERSISTENCE
+  ============================================================ */
+  function loadHistory(){ try{var r=localStorage.getItem('pwd-history');if(r)history=JSON.parse(r);}catch(e){} }
+  function saveHistory(){ try{localStorage.setItem('pwd-history',JSON.stringify(history.slice(0,50)));}catch(e){} }
+  function loadSound(){ try{var v=localStorage.getItem('pwd-sound');if(v!==null)soundOn=v==='1';}catch(e){} }
+  function saveSound(){ try{localStorage.setItem('pwd-sound',soundOn?'1':'0');}catch(e){} }
+  function loadEliminated(){ try{var r=localStorage.getItem('pwd-eliminated');if(r)eliminated=JSON.parse(r)||{};}catch(e){} }
+  function saveEliminated(){ try{localStorage.setItem('pwd-eliminated',JSON.stringify(eliminated));}catch(e){} }
+  function loadSettings(){
+    try{
+      var v = localStorage.getItem('pwd-elim');
+      if(v === '1' || v === '2') elimCount = parseInt(v, 10);
+    }catch(e){}
+  }
+  function saveSettings(){
+    try{ localStorage.setItem('pwd-elim', String(elimCount)); }catch(e){}
+  }
+
+  /* ============================================================
+     SMOOTH SERPENTINE PIPE PATHS
+     Generate truly smooth S-curves where each cubic segment's
+     end-tangent matches the next segment's start-tangent.
+     We do this by sampling y every chunk and choosing alternating
+     x offsets, then connecting with cubic curves that have
+     reflective control points.
+  ============================================================ */
+  var LANE_TOP = 50, LANE_BOTTOM = 650;
+  var LANE_X = [150, 300, 450];
+  var LANE_TINTS = [
+    {fill:'#ffb8e8',glow:'#ff6fb3',deep:'#a83278'},
+    {fill:'#b8e8ff',glow:'#5dc8ff',deep:'#2a78c8'},
+    {fill:'#d4b8ff',glow:'#a96bff',deep:'#6a2aa8'}
+  ];
+
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+  // Build a smooth serpentine path through a list of waypoints.
+  // Uses Catmull-Rom-like approach: convert through-points to cubic
+  // Beziers so every joint is C1-continuous (no jitter).
+  function smoothPathThrough(points){
+    if(points.length < 2) return '';
+    var d = 'M ' + points[0].x + ' ' + points[0].y;
+    // For each segment between p[i] and p[i+1], use tangent
+    // derived from p[i-1]→p[i+1] and p[i]→p[i+2].
+    for(var i=0;i<points.length-1;i++){
+      var p0 = points[i-1] || points[i];
+      var p1 = points[i];
+      var p2 = points[i+1];
+      var p3 = points[i+2] || points[i+1];
+      var tension = 0.35; // 0.35 = nicely smooth
+      var c1x = p1.x + (p2.x - p0.x) * tension;
+      var c1y = p1.y + (p2.y - p0.y) * tension;
+      var c2x = p2.x - (p3.x - p1.x) * tension;
+      var c2y = p2.y - (p3.y - p1.y) * tension;
+      d += ' C ' + c1x + ' ' + c1y + ', ' + c2x + ' ' + c2y + ', ' + p2.x + ' ' + p2.y;
+    }
+    return d;
+  }
+
+  function buildSerpentinePath(centerX, seed){
+    var rand = mulberry32(seed);
+    var n = 9; // waypoints
+    var points = [];
+    var totalH = LANE_BOTTOM - LANE_TOP;
+    var step = totalH / (n - 1);
+    for(var i=0;i<n;i++){
+      var y = LANE_TOP + i*step;
+      var x;
+      if(i === 0 || i === n-1){
+        // Start and end aligned at top/bottom centers
+        x = centerX;
+      } else {
+        // Alternate left/right with slight randomness on amplitude
+        var dir = (i % 2 === 0) ? 1 : -1;
+        var amp = 55 + rand()*20;  // 55-75
+        x = centerX + dir * amp;
+      }
+      points.push({x:x, y:y});
+    }
+    return smoothPathThrough(points);
+  }
+
+  /* ============================================================
+     SVG SETUP
+  ============================================================ */
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var XLINK_NS = 'http://www.w3.org/1999/xlink';
+  var svg = document.getElementById('track');
+
+  function svgEl(tag, attrs){
+    var el = document.createElementNS(SVG_NS, tag);
+    if(attrs) for(var k in attrs) if(attrs.hasOwnProperty(k)) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  // Build defs
+  var defs = svgEl('defs');
+  function addLG(id, stops, x1,y1,x2,y2){
+    var g = svgEl('linearGradient',{id:id,x1:x1||0,y1:y1||0,x2:x2||0,y2:y2||0});
+    stops.forEach(function(s){ g.appendChild(svgEl('stop',s)); });
+    defs.appendChild(g);
+  }
+  function addRG(id, stops, cx,cy,r){
+    var g = svgEl('radialGradient',{id:id,cx:cx,cy:cy,r:r});
+    stops.forEach(function(s){ g.appendChild(svgEl('stop',s)); });
+    defs.appendChild(g);
+  }
+  addLG('brassDark',[{offset:'0','stop-color':'#ffb84a'},{offset:'1','stop-color':'#8a4a08'}],0,0,0,1);
+  addRG('topPlate',[{offset:'0','stop-color':'#fff0b8'},{offset:'.6','stop-color':'#ffb84a'},{offset:'1','stop-color':'#8a4a08'}],'.5','.4','.7');
+  addRG('bottomPlate',[{offset:'0','stop-color':'#fff0b8'},{offset:'.6','stop-color':'#ffb84a'},{offset:'1','stop-color':'#6a3a08'}],'.5','.4','.7');
+
+  var filt = svgEl('filter',{id:'ballGlow',x:'-50%',y:'-50%',width:'200%',height:'200%'});
+  filt.appendChild(svgEl('feGaussianBlur',{stdDeviation:'4',result:'g'}));
+  var fm = svgEl('feMerge');
+  fm.appendChild(svgEl('feMergeNode',{in:'g'}));
+  fm.appendChild(svgEl('feMergeNode',{in:'SourceGraphic'}));
+  filt.appendChild(fm);
+  defs.appendChild(filt);
+
+  LANE_TINTS.forEach(function(t,i){
+    addLG('laneFill'+i,[
+      {offset:'0','stop-color':t.glow,'stop-opacity':'.5'},
+      {offset:'.5','stop-color':t.fill,'stop-opacity':'.85'},
+      {offset:'1','stop-color':t.glow,'stop-opacity':'.5'}
+    ],0,0,1,0);
+    addLG('laneShine'+i,[
+      {offset:'0','stop-color':'#fff','stop-opacity':'0'},
+      {offset:'.4','stop-color':'#fff','stop-opacity':'.9'},
+      {offset:'.6','stop-color':'#fff','stop-opacity':'.9'},
+      {offset:'1','stop-color':'#fff','stop-opacity':'0'}
+    ],0,0,1,0);
+  });
+  svg.appendChild(defs);
+
+  var lanesGroup = svgEl('g');
+  svg.appendChild(lanesGroup);
+  var pathEls = [];
+  var PATH_LENGTHS = [];
+
+  function approxLength(d){
+    var t = svgEl('path',{d:d,fill:'none',stroke:'none'});
+    svg.appendChild(t);
+    var L = t.getTotalLength();
+    svg.removeChild(t);
+    return L;
+  }
+  function pointAtLength(d,L){
+    var t = svgEl('path',{d:d,fill:'none',stroke:'none'});
+    svg.appendChild(t);
+    var p = t.getPointAtLength(L);
+    svg.removeChild(t);
+    return p;
+  }
+
+  function rebuildLanes(seedBase){
+    // Wipe existing lane content
+    while(lanesGroup.firstChild) lanesGroup.removeChild(lanesGroup.firstChild);
+    pathEls = [];
+
+    var lanePaths = LANE_X.map(function(x,i){ return buildSerpentinePath(x, seedBase + i*9999); });
+
+    lanePaths.forEach(function(d,i){
+      var layers = [
+        {stroke:LANE_TINTS[i].deep, w:46, op:'.4'},
+        {stroke:'url(#laneFill'+i+')', w:38, op:null},
+        {stroke:'url(#laneShine'+i+')', w:7, op:'.8'},
+        {stroke:'rgba(40,10,80,.12)', w:30, op:null}
+      ];
+      layers.forEach(function(l){
+        var a = {d:d,fill:'none',stroke:l.stroke,'stroke-width':l.w,'stroke-linecap':'round'};
+        if(l.op) a.opacity = l.op;
+        lanesGroup.appendChild(svgEl('path',a));
+      });
+      var len = approxLength(d);
+      for(var r=1;r<7;r++){
+        var pt = pointAtLength(d, (r/7)*len);
+        lanesGroup.appendChild(svgEl('circle',{cx:pt.x,cy:pt.y,r:23,fill:'none',stroke:'url(#brassDark)','stroke-width':5,opacity:.95}));
+        lanesGroup.appendChild(svgEl('circle',{cx:pt.x,cy:pt.y-1,r:23,fill:'none',stroke:'#fff8c8','stroke-width':1.4,opacity:.7}));
+      }
+      var meas = svgEl('path',{d:d,fill:'none',stroke:'none'});
+      lanesGroup.appendChild(meas);
+      pathEls.push(meas);
+    });
+
+    PATH_LENGTHS = pathEls.map(function(p){ return p.getTotalLength(); });
+  }
+
+  // Initial build
+  rebuildLanes(1234);
+
+  // Top plate
+  var topPlate = svgEl('g');
+  topPlate.appendChild(svgEl('rect',{x:50,y:6,width:500,height:50,rx:14,fill:'url(#topPlate)',stroke:'#6a3a08','stroke-width':2.5}));
+  topPlate.appendChild(svgEl('rect',{x:54,y:10,width:492,height:42,rx:11,fill:'none',stroke:'#fff8c8','stroke-width':1.5,opacity:.6}));
+  LANE_X.forEach(function(x){
+    topPlate.appendChild(svgEl('circle',{cx:x,cy:32,r:18,fill:'#1a0a32',stroke:'url(#brassDark)','stroke-width':3}));
+    topPlate.appendChild(svgEl('circle',{cx:x,cy:30,r:18,fill:'none',stroke:'#fff8c8','stroke-width':1,opacity:.5}));
+  });
+  [80,140,520,460].forEach(function(x){
+    topPlate.appendChild(svgEl('circle',{cx:x,cy:32,r:3,fill:'#5a2a00'}));
+    topPlate.appendChild(svgEl('circle',{cx:x,cy:31,r:1.2,fill:'#fff8c8'}));
+  });
+  svg.appendChild(topPlate);
+
+  LANE_X.forEach(function(x,i){
+    var t = svgEl('text',{x:x,y:38,'text-anchor':'middle','font-family':'Bungee, cursive','font-size':16,fill:'#fff8c8','font-weight':'700'});
+    t.textContent = i+1;
+    svg.appendChild(t);
+  });
+
+  // Bottom plate
+  var botPlate = svgEl('g');
+  botPlate.appendChild(svgEl('rect',{x:40,y:660,width:520,height:34,rx:10,fill:'url(#bottomPlate)',stroke:'#6a3a08','stroke-width':2.5}));
+  botPlate.appendChild(svgEl('rect',{x:46,y:666,width:508,height:6,rx:3,fill:'#1a0a32',opacity:.5}));
+  LANE_X.forEach(function(x,i){
+    botPlate.appendChild(svgEl('rect',{x:x-24,y:648,width:48,height:24,rx:7,fill:LANE_TINTS[i].glow,stroke:'#6a3a08','stroke-width':2}));
+    botPlate.appendChild(svgEl('rect',{x:x-16,y:653,width:32,height:3,rx:1.5,fill:'#fff8c8',opacity:.8}));
+  });
+  svg.appendChild(botPlate);
+
+  // Create a ball element with embedded brand icon (no external img!)
+  function createBallGroup(ball, idx){
+    var g = svgEl('g',{'class':'ball-runner', transform:'translate('+LANE_X[idx]+','+LANE_TOP+')'});
+    g.appendChild(svgEl('circle',{r:16, fill:ball.color, opacity:.45, filter:'url(#ballGlow)'}));
+    g.appendChild(svgEl('circle',{r:14, fill:ball.bg, stroke:'rgba(0,0,0,.25)', 'stroke-width':1}));
+
+    // Render inline fallback FIRST (so it shows if CDN image fails to load)
+    var iconHTML = ICONS[ball.id];
+    if(iconHTML){
+      var wrap = svgEl('g',{transform:'translate(-9,-9) scale(0.75)'});
+      var parser = new DOMParser();
+      var doc = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' + iconHTML + '</svg>', 'image/svg+xml');
+      var nodes = doc.documentElement.childNodes;
+      for(var i=0;i<nodes.length;i++){
+        var node = nodes[i];
+        if(node.nodeType === 1){ var imported = document.importNode(node, true); wrap.appendChild(imported); }
+      }
+      g.appendChild(wrap);
+    } else {
+      // Monogram fallback — render as SVG text
+      var mono = ball.mono || ball.name.charAt(0).toUpperCase();
+      var fontSize = mono.length > 1 ? 11 : 14;
+      var t = svgEl('text', {
+        'text-anchor':'middle', 'dominant-baseline':'central',
+        'font-family':'Bungee, system-ui, sans-serif',
+        'font-size':fontSize, 'font-weight':'900',
+        fill: ball.color, x: 0, y: 1
+      });
+      t.textContent = mono;
+      g.appendChild(t);
+    }
+
+    // Then layer the CDN image on top. If it loads, it covers the fallback.
+    // If it 404s or is blocked, the fallback shows through unchanged.
+    var slug = brandSlug(ball);
+    var hex = ball.color.replace('#','');
+    var url = 'https://cdn.simpleicons.org/' + slug + '/' + hex;
+    var img = svgEl('image', {
+      x:-9, y:-9, width:18, height:18,
+      preserveAspectRatio:'xMidYMid meet'
+    });
+    img.setAttributeNS(XLINK_NS,'xlink:href', url);
+    img.setAttribute('href', url);
+    // If the CDN image errors, hide it so the fallback underneath remains visible
+    img.addEventListener('error', function(){
+      img.setAttribute('opacity','0');
+    });
+    g.appendChild(img);
+
+    g.appendChild(svgEl('ellipse',{cx:-5,cy:-7,rx:5,ry:3,fill:'rgba(255,255,255,.5)'}));
+    return g;
+  }
+
+  /* ============================================================
+     DOM REFS
+  ============================================================ */
+  var $ = function(id){ return document.getElementById(id); };
+  var ballGrid=$('ballGrid'),picker=$('picker'),pickBtn=$('pickBtn'),cancelPick=$('cancelPick'),confirmPick=$('confirmPick');
+  var pickCount=$('pickCount'),pickMaxEl=$('pickMax'),pickerTitle=$('pickerTitle'),pickerHint=$('pickerHint'),platform=$('platform');
+  var leverBtn=$('leverBtn'),resetBtn=$('resetBtn'),winnerTag=$('winnerTag'),raceNumEl=$('raceNum'),confettiEl=$('confetti');
+  var soundBtn=$('soundBtn'),historyBtn=$('historyBtn'),historySheet=$('historySheet'),historyList=$('historyList');
+  var historyCountEl=$('historyCount'),leaderboard=$('leaderboard'),closeHistory=$('closeHistory'),clearHistoryBtn=$('clearHistoryBtn');
+  var bracketOverlay=$('bracketOverlay'),bracketCard=$('bracketCard');
+  var resultOverlay=$('resultOverlay'),resultCard=$('resultCard');
+  var confirmOverlay=$('confirmOverlay'),confirmTitle=$('confirmTitle'),confirmMsg=$('confirmMsg'),confirmYes=$('confirmYes'),confirmNo=$('confirmNo');
+  var modeBar = document.querySelector('.mode-bar');
+  var elimBar = $('elimBar');
+  var randomizeBtn = $('randomizeBtn');
+  var clearPickBtn = $('clearPickBtn');
+
+  /* ============================================================
+     CUSTOM CONFIRM DIALOG (replaces native confirm())
+  ============================================================ */
+  var confirmCallback = null;
+  function customConfirm(title, msg, onYes){
+    confirmTitle.textContent = title;
+    confirmMsg.textContent = msg;
+    confirmCallback = onYes;
+    confirmOverlay.classList.add('open');
+  }
+  confirmYes.addEventListener('click', function(){
+    SFX.click();
+    confirmOverlay.classList.remove('open');
+    if(confirmCallback) confirmCallback();
+    confirmCallback = null;
+  });
+  confirmNo.addEventListener('click', function(){
+    SFX.click();
+    confirmOverlay.classList.remove('open');
+    confirmCallback = null;
+  });
+
+  /* ============================================================
+     PICKER
+  ============================================================ */
+  function getPickRequirement(){ return mode==='tourney' ? 8 : 3; }
+  function findBall(id){
+    // Search active roster first, then full pool (for history items)
+    for(var i=0;i<BALLS.length;i++) if(BALLS[i].id===id) return BALLS[i];
+    for(var j=0;j<BRAND_POOL.length;j++) if(BRAND_POOL[j].id===id) return BRAND_POOL[j];
+    return null;
+  }
+
+  function eligibleBalls(){
+    return BALLS.filter(function(b){ return !eliminated[b.id]; });
+  }
+
+  function renderPicker(){
+    var max = getPickRequirement();
+    pickMaxEl.textContent = max;
+    pickerTitle.textContent = mode==='tourney' ? ('CHOOSE '+max+' CONTESTANTS') : ('CHOOSE '+max+' RACERS');
+
+    var elimCount = Object.keys(eliminated).length;
+    var available = BALLS.length - elimCount;
+    if(elimCount > 0){
+      pickerHint.textContent = '✕ Eliminated balls cannot race again until you reset (' + elimCount + ' eliminated, ' + available + ' available)';
+    } else {
+      pickerHint.textContent = 'Tap balls to pick. Losers will be eliminated.';
+    }
+
+    ballGrid.innerHTML = '';
+    BALLS.forEach(function(b){
+      var btn = document.createElement('button');
+      btn.className = 'ball-pick';
+      btn.style.background = b.bg;
+      btn.dataset.id = b.id;
+      btn.innerHTML = ballIconHTML(b);
+      var ck = document.createElement('span'); ck.className='check'; ck.textContent='✓'; btn.appendChild(ck);
+      var nm = document.createElement('span'); nm.className='name'; nm.textContent=b.name; btn.appendChild(nm);
+      if(eliminated[b.id]){
+        btn.classList.add('eliminated');
+        btn.disabled = true;
+      } else if(selected.indexOf(b.id) >= 0){
+        btn.classList.add('selected');
+      }
+      btn.addEventListener('click', function(){
+        if(eliminated[b.id]) return;
+        togglePick(b.id, btn);
+      });
+      ballGrid.appendChild(btn);
+    });
+    updatePickerState();
+  }
+  function togglePick(id, btn){
+    var max = getPickRequirement(), idx = selected.indexOf(id);
+    if(idx>=0){ selected.splice(idx,1); btn.classList.remove('selected'); SFX.click(); }
+    else { if(selected.length>=max) return; selected.push(id); btn.classList.add('selected'); SFX.pop(); }
+    updatePickerState();
+  }
+  function updatePickerState(){
+    var max = getPickRequirement();
+    pickCount.textContent = selected.length;
+    var available = eligibleBalls().length;
+    confirmPick.disabled = selected.length !== max || available < max;
+    randomizeBtn.disabled = available < max;
+    clearPickBtn.disabled = selected.length === 0;
+    var picks = ballGrid.querySelectorAll('.ball-pick:not(.eliminated)');
+    for(var i=0;i<picks.length;i++){
+      if(selected.length>=max && !picks[i].classList.contains('selected')) picks[i].classList.add('disabled');
+      else picks[i].classList.remove('disabled');
+    }
+  }
+
+  pickBtn.addEventListener('click', function(){
+    if(racing) return;
+    SFX.click();
+
+    var available = eligibleBalls().length;
+    var needed = getPickRequirement();
+    if(available < needed){
+      customConfirm('Not enough balls!',
+        'Only ' + available + ' balls left. Reset to bring back eliminated balls?',
+        function(){ resetEliminations(); openPicker(); });
+      return;
+    }
+    openPicker();
+  });
+
+  function openPicker(){
+    selected = (mode==='quick') ? racers.filter(function(r){return !eliminated[r.id];}).map(function(r){return r.id;}) : [];
+    renderPicker();
+    picker.classList.add('open');
+  }
+
+  cancelPick.addEventListener('click', function(){ SFX.click(); picker.classList.remove('open'); });
+  confirmPick.addEventListener('click', function(){
+    SFX.pop();
+    picker.classList.remove('open');
+    if(mode==='tourney') startTournament(selected.map(findBall));
+    else { racers = selected.map(findBall); renderPlatform(); leverBtn.disabled = racers.length!==3; }
+  });
+
+  // Random pick — auto-fill the selection from available balls
+  randomizeBtn.addEventListener('click', function(){
+    var max = getPickRequirement();
+    var available = eligibleBalls();
+    if(available.length < max) return;
+    SFX.pop();
+    // Fisher-Yates shuffle, take first `max`
+    var pool = available.slice();
+    for(var i = pool.length-1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i+1));
+      var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+    }
+    selected = pool.slice(0, max).map(function(b){ return b.id; });
+    renderPicker();
+  });
+
+  // Clear all picks
+  clearPickBtn.addEventListener('click', function(){
+    if(selected.length === 0) return;
+    SFX.click();
+    selected = [];
+    renderPicker();
+  });
+
+  function renderPlatform(){
+    var slots = platform.querySelectorAll('.slot');
+    for(var i=0;i<slots.length;i++){
+      slots[i].innerHTML = '';
+      if(racers[i]){
+        var b = racers[i];
+        var p = document.createElement('div');
+        p.className = 'placed'; p.style.background = b.bg;
+        p.innerHTML = ballIconHTML(b);
+        slots[i].appendChild(p);
+      }
+    }
+    if(mode==='tourney' && racers.length===2) slots[2].style.visibility = 'hidden';
+    else slots[2].style.visibility = '';
+  }
+
+  modeBar.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest && e.target.closest('.mode-pill');
+    if(!btn || racing) return;
+    SFX.click();
+    var pills = modeBar.querySelectorAll('.mode-pill');
+    for(var i=0;i<pills.length;i++) pills[i].classList.remove('active');
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    racers=[]; selected=[]; tourney=null;
+    renderPlatform();
+    leverBtn.disabled = true;
+    pickBtn.disabled = false;
+    pickBtn.textContent = mode==='tourney' ? '🏆 START TOURNAMENT' : '🎱 PICK BALLS';
+    bracketOverlay.classList.remove('open');
+    // Elim toggle is irrelevant in tournament mode (always 1v1)
+    if(mode === 'tourney') elimBar.classList.add('tourney-mode');
+    else elimBar.classList.remove('tourney-mode');
+  });
+
+  // Elimination count toggle (1 or 2 losers per quick race)
+  elimBar.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest && e.target.closest('.elim-pill');
+    if(!btn || racing) return;
+    SFX.click();
+    var pills = elimBar.querySelectorAll('.elim-pill');
+    for(var i=0;i<pills.length;i++) pills[i].classList.remove('active');
+    btn.classList.add('active');
+    elimCount = parseInt(btn.dataset.elim, 10);
+    saveSettings();
+  });
+
+  /* ============================================================
+     RACE
+  ============================================================ */
+  leverBtn.addEventListener('click', startRace);
+  resetBtn.addEventListener('click', function(){
+    SFX.click();
+    customConfirm('Reset everything?', 'This will bring back eliminated balls and clear the current race.', function(){
+      resetAll();
+    });
+  });
+
+  function startRace(){
+    if(racing || racers.length<2) return;
+    racing = true; leverBtn.disabled=true; pickBtn.disabled=true;
+    winnerTag.classList.remove('show');
+    confettiEl.classList.remove('show'); confettiEl.innerHTML='';
+    var ctx = getAudio();
+    if(ctx && ctx.state==='suspended'){ try{ctx.resume();}catch(e){} }
+
+    // Generate fresh pipe shapes for this race
+    trackSeed = Math.floor(Math.random() * 999999) + 1;
+    rebuildLanes(trackSeed);
+
+    SFX.steam(); setTimeout(function(){SFX.whoosh();}, 200);
+    var olds = svg.querySelectorAll('.ball-runner');
+    for(var k=0;k<olds.length;k++) olds[k].parentNode.removeChild(olds[k]);
+    var ballEls = [];
+    racers.forEach(function(b,i){ var g = createBallGroup(b,i); svg.appendChild(g); ballEls.push(g); });
+    var baseDuration = 3500 + Math.random()*1500;
+    var rd = racers.map(function(){ return {bias:0.85+Math.random()*0.30, wA:0.012+Math.random()*0.018, wF:3+Math.random()*3, ph:Math.random()*Math.PI*2, fin:false, finishOrder:-1}; });
+    var start = performance.now(), firstFin = -1, finishedCount = 0, lastTick=0;
+    function frame(now){
+      var el = now - start, allDone = true;
+      if(soundOn && el-lastTick > 280 && el < baseDuration*0.95){ SFX.tick(); lastTick=el; }
+      for(var i=0;i<racers.length;i++){
+        var r = rd[i], dur = baseDuration / r.bias, t = el / dur;
+        t += Math.sin(el/1000 * r.wF + r.ph) * r.wA;
+        if(t<0) t=0; else if(t>1) t=1;
+        if(!r.fin && t>=1){
+          r.fin=true;
+          r.finishOrder = finishedCount++;
+          if(firstFin===-1){ firstFin=i; announceWinner(i); }
+        }
+        if(!r.fin) allDone=false;
+        var p = pathEls[i].getPointAtLength(PATH_LENGTHS[i]*t);
+        ballEls[i].setAttribute('transform','translate('+p.x+','+p.y+')');
+      }
+      if(el < baseDuration*1.4 && !allDone){ animationId = requestAnimationFrame(frame); }
+      else {
+        // Anyone who didn't finish in time still gets a finish position
+        // ordered by their progress (highest t = next finisher)
+        var unfinished = [];
+        for(var u=0;u<racers.length;u++){
+          if(!rd[u].fin){
+            var ut = el / (baseDuration / rd[u].bias);
+            unfinished.push({idx:u, t:ut});
+          }
+        }
+        unfinished.sort(function(a,b){ return b.t - a.t; });
+        unfinished.forEach(function(item){ rd[item.idx].finishOrder = finishedCount++; });
+
+        for(var j=0;j<racers.length;j++){
+          var pp = pathEls[j].getPointAtLength(PATH_LENGTHS[j]);
+          ballEls[j].setAttribute('transform','translate('+pp.x+','+pp.y+')');
+        }
+        racing=false; pickBtn.disabled=false;
+        if(firstFin >= 0) finalizeRace(firstFin, rd);
+      }
+    }
+    animationId = requestAnimationFrame(frame);
+  }
+
+  function announceWinner(idx){
+    var b = racers[idx];
+    winnerTag.textContent = '🏆 ' + b.name.toUpperCase() + '!';
+    winnerTag.classList.add('show');
+    SFX.win();
+    burstConfetti(b.color);
+  }
+
+  function finalizeRace(winnerIdx, racerData){
+    var winner = racers[winnerIdx];
+
+    // Build sorted finish list: 1st place → last
+    var finishOrder = racers.map(function(r,i){
+      return {ball:r, place:racerData[i].finishOrder};
+    }).sort(function(a,b){ return a.place - b.place; });
+
+    // Determine which finishers get eliminated.
+    // - Tournament (1v1): the loser is always eliminated
+    // - Quick race (3 balls): bottom `elimCount` (1 or 2) get eliminated
+    var elimList, safeList;
+    if(mode === 'tourney'){
+      elimList = [finishOrder[1].ball];
+      safeList = [];
+    } else {
+      var elimN = Math.min(elimCount, finishOrder.length - 1); // can't eliminate winner
+      elimList = finishOrder.slice(finishOrder.length - elimN).map(function(f){ return f.ball; });
+      safeList = finishOrder.slice(1, finishOrder.length - elimN).map(function(f){ return f.ball; });
+    }
+    elimList.forEach(function(l){ eliminated[l.id] = true; });
+    saveEliminated();
+    SFX.lose();
+
+    if(mode === 'quick'){
+      history.unshift({ts:Date.now(), mode:'quick', winnerId:winner.id, contestants:racers.map(function(r){return r.id;})});
+      saveHistory();
+      raceNumber++;
+      raceNumEl.textContent = 'RACE ' + (raceNumber<10?'0':'') + raceNumber;
+      setTimeout(function(){ showResultPopup(winner, safeList, elimList, false); }, 800);
+    } else {
+      setTimeout(function(){
+        showResultPopup(winner, [], elimList, true);
+      }, 800);
+    }
+  }
+
+  function showResultPopup(winner, safeList, elimList, isTourneyMatch){
+    var html = '<h2>RACE RESULTS</h2>';
+    html += '<div class="winner-block">';
+    html += '<span class="crown">🏆</span>';
+    html += '<div class="ball-big" style="background:' + winner.bg + '">' + ballIconHTML(winner) + '</div>';
+    html += '<div class="label">1ST PLACE</div>';
+    html += '<div class="name">' + winner.name + '</div>';
+    html += '</div>';
+
+    // Middle finishers (safe — not eliminated)
+    if(safeList.length){
+      html += '<div class="losers-block" style="background:rgba(255,255,255,.15)">';
+      html += '<div class="label" style="color:#ffd84a">SAFE</div>';
+      safeList.forEach(function(m){
+        html += '<div class="loser-row" style="background:rgba(255,216,74,.15)">';
+        html += '<div class="ball-mini" style="background:' + m.bg + ';filter:none;opacity:1">' + ballIconHTML(m) + '</div>';
+        html += '<div class="nm">' + m.name + '</div>';
+        html += '<div class="tag" style="color:#ffd84a">SAFE</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Eliminated balls
+    if(elimList.length){
+      html += '<div class="losers-block">';
+      html += '<div class="label">ELIMINATED</div>';
+      elimList.forEach(function(l){
+        html += '<div class="loser-row">';
+        html += '<div class="ball-mini" style="background:' + l.bg + '">' + ballIconHTML(l) + '</div>';
+        html += '<span class="x">✕</span>';
+        html += '<div class="nm">' + l.name + '</div>';
+        html += '<div class="tag">OUT</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    var btnLabel = isTourneyMatch ? 'NEXT MATCH ▶' : 'PLAY AGAIN ▶';
+    html += '<button class="continue" id="resultContinue">' + btnLabel + '</button>';
+    resultCard.innerHTML = html;
+    resultOverlay.classList.add('open');
+    $('resultContinue').addEventListener('click', function(){
+      SFX.click();
+      resultOverlay.classList.remove('open');
+      if(isTourneyMatch){
+        advanceTournament(winner);
+      } else {
+        racers = [];
+        renderPlatform();
+        leverBtn.disabled = true;
+      }
+    });
+  }
+
+  function burstConfetti(color){
+    confettiEl.classList.add('show');
+    var colors = [color,'#ffd84a','#ff6fb3','#5dc8ff','#7be88a','#a96bff','#ff9a3d'];
+    for(var i=0;i<60;i++){
+      var s = document.createElement('span');
+      s.style.left = (Math.random()*100)+'vw';
+      s.style.background = colors[i%colors.length];
+      s.style.animationDuration = (1.4+Math.random()*1.4)+'s';
+      s.style.animationDelay = (Math.random()*0.4)+'s';
+      s.style.transform = 'rotate('+(Math.random()*360)+'deg)';
+      confettiEl.appendChild(s);
+    }
+    setTimeout(function(){ confettiEl.classList.remove('show'); confettiEl.innerHTML=''; }, 3200);
+  }
+
+  function resetEliminations(){
+    eliminated = {};
+    saveEliminated();
+  }
+
+  function resetAll(){
+    if(animationId) cancelAnimationFrame(animationId);
+    racing=false; racers=[]; selected=[]; tourney=null; raceNumber=1;
+    eliminated = {}; saveEliminated();
+    pickRandomRoster();   // Re-sample brands from the 100-pool
+    raceNumEl.textContent = 'RACE 01';
+    winnerTag.classList.remove('show');
+    var olds = svg.querySelectorAll('.ball-runner');
+    for(var k=0;k<olds.length;k++) olds[k].parentNode.removeChild(olds[k]);
+    renderPlatform();
+    leverBtn.disabled=true; pickBtn.disabled=false;
+    pickBtn.textContent = mode==='tourney'?'🏆 START TOURNAMENT':'🎱 PICK BALLS';
+    confettiEl.classList.remove('show'); confettiEl.innerHTML='';
+    bracketOverlay.classList.remove('open');
+    resultOverlay.classList.remove('open');
+  }
+
+  /* ============================================================
+     TOURNAMENT
+  ============================================================ */
+  function startTournament(c){
+    var s = c.slice().sort(function(){return Math.random()-0.5;});
+    tourney = {contestants:s, rounds:[{name:'QUARTERFINALS',matches:[]},{name:'SEMIFINALS',matches:[]},{name:'FINAL',matches:[]}], currentRound:0, currentMatch:0, champion:null};
+    for(var i=0;i<s.length;i+=2) tourney.rounds[0].matches.push({a:s[i],b:s[i+1],winner:null});
+    SFX.bracket(); showBracketCard();
+  }
+  function competitorHTML(b, isW){
+    if(!b) return '<div class="competitor pending">?</div>';
+    return '<div class="competitor '+(isW?'winner':'')+'"><div class="ball-tiny" style="background:'+b.bg+'">'+ballIconHTML(b)+'</div><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+b.name+'</span></div>';
+  }
+  function showBracketCard(){
+    if(!tourney){ bracketOverlay.classList.remove('open'); return; }
+    bracketOverlay.classList.add('open');
+    var round = tourney.rounds[tourney.currentRound];
+    var match = round && round.matches[tourney.currentMatch];
+    var html = '';
+    if(tourney.champion){
+      html += '<h2>🏆 CHAMPION!</h2><div class="champion-banner"><div>WINNER OF THE TOURNAMENT</div><div class="ball-big" style="background:'+tourney.champion.bg+'">'+ballIconHTML(tourney.champion)+'</div><div style="font-size:16px">'+tourney.champion.name.toUpperCase()+'</div></div>';
+    } else {
+      html += '<h2>'+round.name+'</h2><div style="margin:6px 0;font-family:Bungee,cursive;color:#ffd84a;font-size:11px">MATCH '+(tourney.currentMatch+1)+' OF '+round.matches.length+'</div>';
+    }
+    html += '<div class="bracket-rounds">';
+    tourney.rounds.forEach(function(r,ri){
+      html += '<div class="bracket-round"><div class="lbl">'+r.name+'</div>';
+      if(r.matches.length===0) html += '<div class="competitor pending">—</div>';
+      else r.matches.forEach(function(m,mi){
+        var cur = ri===tourney.currentRound && mi===tourney.currentMatch && !tourney.champion;
+        html += '<div class="matchup" style="'+(cur?'box-shadow:0 0 0 2px #ffd84a;border-radius:8px;padding:2px':'')+'">';
+        html += competitorHTML(m.a, m.winner===m.a);
+        html += competitorHTML(m.b, m.winner===m.b);
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    html += '<div class="bracket-round"><div class="lbl">CHAMPION</div>';
+    if(tourney.champion) html += competitorHTML(tourney.champion, true);
+    else html += '<div class="competitor pending">?</div>';
+    html += '</div></div>';
+    if(tourney.champion) html += '<div class="bracket-actions"><button class="btn-quit" id="bracketDone">DONE</button></div>';
+    else html += '<div class="bracket-actions"><button class="btn-quit" id="bracketQuit">QUIT</button><button class="btn-next" id="bracketNext">NEXT MATCH ▶</button></div>';
+    bracketCard.innerHTML = html;
+    if(tourney.champion){
+      $('bracketDone').addEventListener('click', function(){ SFX.click(); resetAll(); });
+    } else {
+      $('bracketQuit').addEventListener('click', function(){
+        SFX.click();
+        customConfirm('Quit tournament?', 'You will lose your progress.', function(){ resetAll(); });
+      });
+      $('bracketNext').addEventListener('click', function(){
+        SFX.pop();
+        bracketOverlay.classList.remove('open');
+        racers = [match.a, match.b];
+        renderPlatform();
+        raceNumEl.textContent = round.name.replace('FINALS','FINAL') + ' M' + (tourney.currentMatch+1);
+        leverBtn.disabled = false;
+      });
+    }
+  }
+  function advanceTournament(winner){
+    var round = tourney.rounds[tourney.currentRound];
+    round.matches[tourney.currentMatch].winner = winner;
+    SFX.bracket();
+    tourney.currentMatch++;
+    if(tourney.currentMatch >= round.matches.length){
+      var nx = tourney.currentRound + 1;
+      if(nx < tourney.rounds.length){
+        var ws = round.matches.map(function(m){return m.winner;});
+        for(var i=0;i<ws.length;i+=2) tourney.rounds[nx].matches.push({a:ws[i],b:ws[i+1],winner:null});
+        tourney.currentRound = nx;
+        tourney.currentMatch = 0;
+      } else {
+        tourney.champion = winner;
+        history.unshift({ts:Date.now(),mode:'tourney',winnerId:winner.id,contestants:tourney.contestants.map(function(c){return c.id;})});
+        saveHistory();
+        SFX.champion();
+        burstConfetti(winner.color);
+      }
+    }
+    showBracketCard();
+  }
+
+  /* ============================================================
+     SOUND TOGGLE
+  ============================================================ */
+  function updateSoundBtn(){
+    soundBtn.textContent = soundOn ? '🔊' : '🔇';
+  }
+  soundBtn.addEventListener('click', function(){
+    soundOn = !soundOn; updateSoundBtn(); saveSound();
+    if(soundOn){ var c=getAudio(); if(c&&c.state==='suspended'){try{c.resume();}catch(e){}} SFX.pop(); }
+  });
+
+  /* ============================================================
+     HISTORY UI
+  ============================================================ */
+  historyBtn.addEventListener('click', function(){ SFX.click(); renderHistory(); historySheet.classList.add('open'); });
+  closeHistory.addEventListener('click', function(){ SFX.click(); historySheet.classList.remove('open'); });
+  clearHistoryBtn.addEventListener('click', function(){
+    if(history.length===0) return;
+    customConfirm('Clear history?', 'This will delete all ' + history.length + ' past races.', function(){
+      history=[]; saveHistory(); renderHistory();
+    });
+  });
+
+  function renderHistory(){
+    historyCountEl.textContent = history.length;
+    if(history.length===0){
+      historyList.innerHTML = '<div class="empty-state"><span class="big">🏁</span>No races yet!<br/>Run a race to see it here.</div>';
+      leaderboard.style.display = 'none';
+      return;
+    }
+    var html = '';
+    history.forEach(function(h,i){
+      var w = findBall(h.winnerId); if(!w) return;
+      var others = h.contestants.filter(function(c){return c!==h.winnerId;}).map(function(id){var b=findBall(id);return b?b.name:'';}).filter(Boolean).join(' · ');
+      html += '<div class="h-row"><div class="h-num">#'+(history.length-i)+'</div><div class="h-winner" style="background:'+w.bg+'">'+ballIconHTML(w)+'</div><div class="h-info"><div class="name">'+w.name+(h.mode==='tourney'?' <span style="color:#ffd84a;font-size:10px">🏆 CHAMP</span>':'')+'</div><div class="vs">vs '+others+'</div></div><div>🏆</div></div>';
+    });
+    historyList.innerHTML = html;
+    var counts = {};
+    history.forEach(function(h){ counts[h.winnerId] = (counts[h.winnerId]||0)+1; });
+    var sorted = Object.keys(counts).map(function(id){return {ball:findBall(id),n:counts[id]};}).filter(function(x){return x.ball;}).sort(function(a,b){return b.n-a.n;}).slice(0,5);
+    if(sorted.length){
+      leaderboard.style.display = 'block';
+      var lb = '<h3>🏅 TOP WINNERS</h3>';
+      sorted.forEach(function(x,i){
+        lb += '<div class="leader-row"><div style="font-family:Bungee,cursive;color:#ffd84a;width:16px">'+(i+1)+'.</div><div class="ball-mini" style="background:'+x.ball.bg+'">'+ballIconHTML(x.ball)+'</div><div class="nm">'+x.ball.name+'</div><div class="wn">'+x.n+(x.n===1?' WIN':' WINS')+'</div></div>';
+      });
+      leaderboard.innerHTML = lb;
+    } else {
+      leaderboard.style.display = 'none';
+    }
+  }
+
+  /* BOOT */
+  loadHistory();
+  loadSound();
+  loadEliminated();
+  loadSettings();
+  if(!loadRoster()) pickRandomRoster();   // sample brands from pool if not stored
+  updateSoundBtn();
+  // Sync elim toggle UI to loaded value
+  var elimPills = elimBar.querySelectorAll('.elim-pill');
+  for(var ep=0;ep<elimPills.length;ep++){
+    if(parseInt(elimPills[ep].dataset.elim,10) === elimCount) elimPills[ep].classList.add('active');
+    else elimPills[ep].classList.remove('active');
+  }
+  renderPlatform();
+
+})();
+</script>
+</body>
+</html>
