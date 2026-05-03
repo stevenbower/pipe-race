@@ -1007,8 +1007,9 @@
     pegPositions: []
   };
 
-  function rebuildPlinko(){
-    // Wipe existing plinko content
+  function rebuildPlinko(winnerSlots){
+    // winnerSlots: optional array of 3 booleans, true = winning slot.
+    // If omitted, slots render as neutral "?" placeholders (preview state).
     while(plinkoGroup.firstChild) plinkoGroup.removeChild(plinkoGroup.firstChild);
     PLINKO.pegPositions = [];
 
@@ -1081,32 +1082,77 @@
       }
     }
 
-    // Bottom slots (3) — drawn but winner highlighted later
+    // Bottom slots (3) — styled per winnerSlots, or neutral if not provided
     var slotY = bot - 10;
     var slotW = PLINKO.slotWidth, slotH = PLINKO.slotHeight;
     PLINKO.slotCenters.forEach(function(cx, i){
       var sx = cx - slotW / 2;
-      // Slot background (darker)
+
+      var isPreview = !winnerSlots;
+      var isWinner = winnerSlots && winnerSlots[i] === true;
+
+      // Slot background — color depends on state
+      var slotFill, slotStroke, slotStrokeW;
+      if(isPreview){
+        slotFill = '#1a0a32';
+        slotStroke = 'url(#brassDark)';
+        slotStrokeW = 3;
+      } else if(isWinner){
+        slotFill = '#1ac850';        // green for winners
+        slotStroke = '#7be88a';
+        slotStrokeW = 4;
+      } else {
+        slotFill = '#8a1a3a';        // red for losers
+        slotStroke = '#ff6a6a';
+        slotStrokeW = 4;
+      }
+
       plinkoGroup.appendChild(svgEl('rect', {
         x: sx, y: slotY, width: slotW, height: slotH, rx: 8,
-        fill: '#1a0a32', stroke: 'url(#brassDark)', 'stroke-width': 3,
+        fill: slotFill, stroke: slotStroke, 'stroke-width': slotStrokeW,
         'class': 'plinko-slot plinko-slot-' + i
       }));
-      // Slot highlight ring
+
+      // Inner highlight ring
       plinkoGroup.appendChild(svgEl('rect', {
         x: sx + 3, y: slotY + 3, width: slotW - 6, height: slotH - 6, rx: 6,
-        fill: 'none', stroke: '#fff8c8', 'stroke-width': 1, opacity: 0.4
+        fill: 'none', stroke: 'rgba(255,255,255,.5)', 'stroke-width': 1,
+        opacity: isPreview ? 0.4 : 0.6
       }));
-      // Slot label "?"
+
+      // Slot label
+      var labelText, labelFill, labelOpacity;
+      if(isPreview){
+        labelText = '?'; labelFill = '#fff8c8'; labelOpacity = 0.5;
+      } else if(isWinner){
+        labelText = '🏆'; labelFill = '#fff8c8'; labelOpacity = 1;
+      } else {
+        labelText = '✕'; labelFill = '#ffd0d0'; labelOpacity = 0.95;
+      }
+
       var lbl = svgEl('text', {
         x: cx, y: slotY + slotH / 2 + 2,
         'text-anchor': 'middle', 'dominant-baseline': 'central',
         'font-family': 'Bungee, cursive', 'font-size': 28,
-        fill: '#fff8c8', opacity: 0.5,
+        fill: labelFill, opacity: labelOpacity,
         'class': 'plinko-slot-lbl plinko-slot-lbl-' + i
       });
-      lbl.textContent = '?';
+      lbl.textContent = labelText;
       plinkoGroup.appendChild(lbl);
+
+      // For revealed slots, add small "WIN" / "LOSE" caption above
+      if(!isPreview){
+        var capText = isWinner ? 'WIN' : 'LOSE';
+        var capFill = isWinner ? '#7be88a' : '#ffaaaa';
+        var cap = svgEl('text', {
+          x: cx, y: slotY - 8,
+          'text-anchor': 'middle', 'dominant-baseline': 'central',
+          'font-family': 'Bungee, cursive', 'font-size': 11,
+          fill: capFill, 'letter-spacing': 1.5
+        });
+        cap.textContent = capText;
+        plinkoGroup.appendChild(cap);
+      }
     });
 
     // Side rails
@@ -1596,28 +1642,44 @@
   ============================================================ */
   function startPlinko(){
     showPlinkoScene();
-    rebuildPlinko();
 
-    SFX.steam(); setTimeout(function(){SFX.whoosh();}, 200);
+    // Pick 2 winner slots out of 3 (so it's the LOSER slot that's randomized)
+    var loserSlot = Math.floor(Math.random() * 3);
+    var winnerSlots = [true, true, true];
+    winnerSlots[loserSlot] = false;
+
+    // Pick where the ball will land (independently random — 1/3 chance to lose)
+    var landingSlot = Math.floor(Math.random() * 3);
+    var targetX = PLINKO.slotCenters[landingSlot];
+
+    // Build the board with slot win/loss states REVEALED up-front
+    rebuildPlinko(winnerSlots);
+
+    // Brief "anticipation" pause so player can see the slots before the drop
+    SFX.bracket();   // little anticipation chime
 
     // Remove any prior runners
     var olds = svg.querySelectorAll('.ball-runner, .plinko-winner-glow');
     for(var k=0;k<olds.length;k++) olds[k].parentNode.removeChild(olds[k]);
 
-    // Decide outcome FIRST — random winner slot, random landing slot
-    var winnerSlot = Math.floor(Math.random() * 3);
-    var landingSlot = Math.floor(Math.random() * 3);
-    var targetX = PLINKO.slotCenters[landingSlot];
-
-    // Create the ball at the top funnel
+    // Create the ball at the top funnel (placed but stationary during pause)
     var ball = createBallGroup(racers[0], 0);
     var startX = 300, startY = 70;
     ball.setAttribute('transform', 'translate(' + startX + ',' + startY + ')');
     plinkoGroup.appendChild(ball);
 
+    // ~900ms reveal pause, then drop
+    setTimeout(function(){
+      SFX.steam();
+      setTimeout(function(){ SFX.whoosh(); }, 200);
+      runPlinkoDrop(ball, startX, startY, targetX, landingSlot, winnerSlots);
+    }, 900);
+  }
+
+  function runPlinkoDrop(ball, startX, startY, targetX, landingSlot, winnerSlots){
     // ---- Physics state ----
     var pos = { x: startX, y: startY };
-    var vel = { x: (Math.random() - 0.5) * 30, y: 0 };  // tiny initial sideways jitter
+    var vel = { x: (Math.random() - 0.5) * 30, y: 0 };
 
     // Constants tuned for ~600x700 viewBox & visible motion
     var GRAVITY = 720;            // px/s^2 — strong gravity
@@ -1806,31 +1868,38 @@
         var snapX = PLINKO.slotCenters[landingSlot];
         var snapY = SLOT_FLOOR;
         ball.setAttribute('transform', 'translate(' + snapX + ',' + snapY + ')');
-        revealPlinkoWinner(landingSlot, winnerSlot);
+        finalizePlinko(landingSlot, winnerSlots);
       }
     }
     animationId = requestAnimationFrame(frame);
   }
 
-  function revealPlinkoWinner(landingSlot, winnerSlot){
-    // Highlight all 3 slots — green for winner, gray for losers
-    for(var i = 0; i < 3; i++){
-      var slotRect = plinkoGroup.querySelector('.plinko-slot-' + i);
-      var slotLbl = plinkoGroup.querySelector('.plinko-slot-lbl-' + i);
-      if(!slotRect) continue;
-      if(i === winnerSlot){
-        slotRect.setAttribute('fill', '#1ac850');
-        slotRect.setAttribute('stroke', '#7be88a');
-        slotRect.setAttribute('stroke-width', 4);
-        if(slotLbl){ slotLbl.textContent = '🏆'; slotLbl.setAttribute('opacity', 1); }
-      } else {
-        slotRect.setAttribute('fill', '#5a1a3a');
-        slotRect.setAttribute('opacity', 0.6);
-        if(slotLbl){ slotLbl.textContent = '✕'; slotLbl.setAttribute('opacity', 0.6); slotLbl.setAttribute('fill', '#ff6a6a'); }
-      }
+  function finalizePlinko(landingSlot, winnerSlots){
+    // Slots are already styled (green/red) from the upfront reveal.
+    // Pulse the landed slot so the player can see where the ball ended up.
+    var landedRect = plinkoGroup.querySelector('.plinko-slot-' + landingSlot);
+    if(landedRect){
+      // Add a pulsing outer ring on the landed slot
+      var bbox = landedRect.getBBox();
+      var pulse = svgEl('rect', {
+        x: bbox.x - 4, y: bbox.y - 4,
+        width: bbox.width + 8, height: bbox.height + 8, rx: 12,
+        fill: 'none',
+        stroke: winnerSlots[landingSlot] ? '#7be88a' : '#ffaaaa',
+        'stroke-width': 4,
+        'class': 'plinko-winner-glow'
+      });
+      // SVG SMIL animation pulse
+      var anim = document.createElementNS(SVG_NS, 'animate');
+      anim.setAttribute('attributeName', 'opacity');
+      anim.setAttribute('values', '1;0.3;1');
+      anim.setAttribute('dur', '0.8s');
+      anim.setAttribute('repeatCount', 'indefinite');
+      pulse.appendChild(anim);
+      plinkoGroup.appendChild(pulse);
     }
 
-    var won = (landingSlot === winnerSlot);
+    var won = winnerSlots[landingSlot] === true;
     var ball = racers[0];
 
     if(won){
@@ -1846,13 +1915,11 @@
 
     // Record history & eliminations
     if(won){
-      // Winner survives, no elimination
       history.unshift({
         ts: Date.now(), mode: 'plinko', winnerId: ball.id,
         contestants: [ball.id]
       });
     } else {
-      // Loser is eliminated
       eliminated[ball.id] = true;
       saveEliminated();
       history.unshift({
@@ -1865,13 +1932,13 @@
     raceNumEl.textContent = 'RACE ' + (raceNumber<10?'0':'') + raceNumber;
 
     setTimeout(function(){
-      showPlinkoResultPopup(ball, won, landingSlot, winnerSlot);
+      showPlinkoResultPopup(ball, won, landingSlot, winnerSlots);
       racing = false;
       pickBtn.disabled = false;
     }, 1200);
   }
 
-  function showPlinkoResultPopup(ball, won, landingSlot, winnerSlot){
+  function showPlinkoResultPopup(ball, won, landingSlot, winnerSlots){
     var html = '<h2>' + (won ? '🎯 PLINKO WIN!' : '💔 PLINKO LOSS') + '</h2>';
     html += '<div class="winner-block" style="' + (won ? '' : 'background:linear-gradient(135deg,#8a3a3a,#5a1a1a)') + '">';
     html += '<span class="crown">' + (won ? '🏆' : '💔') + '</span>';
@@ -1879,14 +1946,25 @@
     html += '<div class="label">' + (won ? 'WINNER!' : 'ELIMINATED') + '</div>';
     html += '<div class="name">' + ball.name + '</div>';
     html += '</div>';
-    html += '<div style="margin:10px 0;font-size:12px;color:rgba(255,255,255,.85);font-family:Bungee,cursive;letter-spacing:1px">';
-    html += 'BALL LANDED IN SLOT ' + (landingSlot + 1);
-    if(won){
-      html += '<br/>WINNER SLOT WAS ' + (winnerSlot + 1) + ' ✓';
-    } else {
-      html += '<br/>WINNER SLOT WAS ' + (winnerSlot + 1) + ' — SO CLOSE!';
+
+    // Mini-board summary showing slot layout and where the ball landed
+    html += '<div style="margin:10px 0;display:flex;gap:6px;justify-content:center">';
+    for(var i = 0; i < 3; i++){
+      var slotIsWin = winnerSlots[i] === true;
+      var landedHere = (i === landingSlot);
+      var bg = slotIsWin ? '#1ac850' : '#8a1a3a';
+      var ring = landedHere ? 'box-shadow:0 0 0 3px #ffd84a,0 0 12px #ffd84a;' : '';
+      html += '<div style="flex:0 0 64px;height:50px;border-radius:8px;background:' + bg +
+              ';display:flex;align-items:center;justify-content:center;font-family:Bungee,cursive;color:#fff;font-size:18px;' + ring + '">';
+      html += slotIsWin ? '🏆' : '✕';
+      if(landedHere) html += '<span style="position:absolute;margin-top:-50px;font-size:18px">⬇</span>';
+      html += '</div>';
     }
     html += '</div>';
+    html += '<div style="font-size:11px;color:rgba(255,255,255,.7);font-family:Bungee,cursive;letter-spacing:1px;margin-bottom:8px">';
+    html += 'LANDED IN SLOT ' + (landingSlot + 1);
+    html += '</div>';
+
     html += '<button class="continue" id="resultContinue">PLAY AGAIN ▶</button>';
     resultCard.innerHTML = html;
     resultOverlay.classList.add('open');
