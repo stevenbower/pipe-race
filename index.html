@@ -109,6 +109,12 @@
   .winner-tag.show{opacity:1}
   .svg-box{flex:1 1 auto;min-height:0;width:100%;display:flex}
   .svg-track{width:100%;height:100%;display:block}
+  /* In same-tube mode, hide side lane ports/gates so the middle pipe stands out */
+  .svg-track.same-tube .port-side, .svg-track.same-tube .gate-side{
+    opacity:0.15;
+    transition:opacity .3s;
+  }
+  .svg-track .port-side, .svg-track .gate-side{transition:opacity .3s}
 
   .controls{flex:0 0 auto;margin:8px auto 0;width:100%;max-width:780px;display:flex;flex-direction:column;gap:8px}
   .platform{
@@ -171,7 +177,46 @@
   .sheet-head h2{font-family:'Bungee',cursive;font-size:15px;color:#fff;margin:0}
   .sheet-head .count{font-family:'Bungee',cursive;font-size:12px;color:#5a1a78;background:#ffd84a;padding:5px 10px;border-radius:999px}
 
-  .ball-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;overflow-y:auto;max-height:55vh;padding:4px 2px 8px}
+  /* Responsive grid:
+     - Phones: 5 columns (cells ~50-70px)
+     - Tablets in portrait: ~7-8 columns
+     - Tablets in landscape: ~10-12 columns
+     - Each cell capped at ~80px so balls never get huge.
+  */
+  .ball-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(56px, 1fr));
+    gap:8px;
+    overflow-y:auto;
+    max-height:55vh;
+    padding:4px 2px 8px;
+    justify-content:center;
+  }
+  .ball-pick{
+    max-width:80px;
+    margin:0 auto;
+    width:100%;
+  }
+  /* On wider screens, allow the sheet to be narrower & centered */
+  @media (min-width: 700px){
+    .sheet{align-items:center;justify-content:center}
+    .sheet-body{
+      max-width:640px;
+      max-height:80vh;
+      border-radius:24px;
+      margin:auto;
+    }
+    .ball-grid{
+      grid-template-columns:repeat(auto-fill, minmax(64px, 1fr));
+      max-height:50vh;
+    }
+    .ball-pick{max-width:84px}
+  }
+  @media (min-width: 1000px){
+    .sheet-body{max-width:760px}
+    .ball-grid{grid-template-columns:repeat(auto-fill, minmax(70px, 1fr))}
+    .ball-pick{max-width:90px}
+  }
   .ball-pick{
     aspect-ratio:1/1;border-radius:50%;border:none;cursor:pointer;
     position:relative;display:flex;align-items:center;justify-content:center;
@@ -374,6 +419,7 @@
 
   <div class="mode-bar">
     <button class="mode-pill active" data-mode="quick">QUICK RACE</button>
+    <button class="mode-pill" data-mode="plinko">🎯 PLINKO</button>
     <button class="mode-pill" data-mode="tourney">🏆 TOURNAMENT</button>
   </div>
 
@@ -381,6 +427,12 @@
     <span class="elim-label">ELIMINATE:</span>
     <button class="elim-pill active" data-elim="1">1 LOSER</button>
     <button class="elim-pill" data-elim="2">2 LOSERS</button>
+  </div>
+
+  <div class="elim-bar" id="tubeBar">
+    <span class="elim-label">TUBES:</span>
+    <button class="elim-pill active" data-tube="separate">SEPARATE</button>
+    <button class="elim-pill" data-tube="same">🌀 SAME TUBE</button>
   </div>
 
   <div class="track-wrap">
@@ -504,133 +556,42 @@
      randomly sample ROSTER_SIZE from this pool to be the active roster.
   ============================================================ */
   var BRAND_POOL = [
-    // Brands with detailed icons
-    {id:'apple',     name:'Apple',       mono:'',  color:'#000000', bg:'#ffffff'},
-    {id:'google',    name:'Google',      mono:'G', color:'#4285F4', bg:'#ffffff'},
-    {id:'microsoft', name:'Microsoft',   mono:'',  color:'#5E5E5E', bg:'#ffffff'},
-    {id:'amazon',    name:'Amazon',      mono:'a', color:'#FF9900', bg:'#232f3e'},
-    {id:'meta',      name:'Meta',        mono:'', color:'#0467DF', bg:'#ffffff'},
-    {id:'netflix',   name:'Netflix',     mono:'N', color:'#E50914', bg:'#000000'},
-    {id:'spotify',   name:'Spotify',     mono:'', color:'#1DB954', bg:'#000000'},
-    {id:'youtube',   name:'YouTube',     mono:'', color:'#FF0000', bg:'#ffffff'},
-    {id:'tiktok',    name:'TikTok',      mono:'', color:'#000000', bg:'#ffffff'},
-    {id:'instagram', name:'Instagram',   mono:'', color:'#E4405F', bg:'#ffffff'},
-    {id:'discord',   name:'Discord',     mono:'', color:'#5865F2', bg:'#ffffff'},
-    {id:'roblox',    name:'Roblox',      mono:'R', color:'#000000', bg:'#ffffff'},
-    {id:'minecraft', name:'Minecraft',   mono:'', color:'#62B47A', bg:'#ffffff'},
-    {id:'nintendo',  name:'Nintendo',    mono:'N', color:'#E60012', bg:'#ffffff'},
-    {id:'playstation',name:'PlayStation',mono:'P', color:'#003791', bg:'#ffffff'},
-    {id:'xbox',      name:'Xbox',        mono:'X', color:'#107C10', bg:'#ffffff'},
-    {id:'lego',      name:'LEGO',        mono:'L', color:'#FFD800', bg:'#000000'},
-    {id:'pokemon',   name:'Pokémon',     mono:'P', color:'#FF1A1A', bg:'#ffffff'},
-    {id:'tesla',     name:'Tesla',       mono:'T', color:'#CC0000', bg:'#ffffff'},
-    {id:'github',    name:'GitHub',      mono:'', color:'#181717', bg:'#ffffff'},
-    // 80 more brands using monogram badges
-    {id:'twitter',   name:'X (Twitter)', mono:'X', color:'#000000', bg:'#ffffff'},
-    {id:'snapchat',  name:'Snapchat',    mono:'S', color:'#FFFC00', bg:'#000000'},
-    {id:'pinterest', name:'Pinterest',   mono:'P', color:'#E60023', bg:'#ffffff'},
-    {id:'whatsapp',  name:'WhatsApp',    mono:'W', color:'#25D366', bg:'#ffffff'},
-    {id:'telegram',  name:'Telegram',    mono:'T', color:'#0088CC', bg:'#ffffff'},
-    {id:'reddit',    name:'Reddit',      mono:'R', color:'#FF4500', bg:'#ffffff'},
-    {id:'twitch',    name:'Twitch',      mono:'T', color:'#9146FF', bg:'#ffffff'},
-    {id:'linkedin',  name:'LinkedIn',    mono:'in',color:'#0A66C2', bg:'#ffffff'},
-    {id:'slack',     name:'Slack',       mono:'#', color:'#4A154B', bg:'#ffffff'},
-    {id:'zoom',      name:'Zoom',        mono:'Z', color:'#2D8CFF', bg:'#ffffff'},
-    {id:'paypal',    name:'PayPal',      mono:'P', color:'#003087', bg:'#ffffff'},
-    {id:'venmo',     name:'Venmo',       mono:'V', color:'#3D95CE', bg:'#ffffff'},
-    {id:'stripe',    name:'Stripe',      mono:'S', color:'#635BFF', bg:'#ffffff'},
-    {id:'visa',      name:'Visa',        mono:'V', color:'#1A1F71', bg:'#ffffff'},
-    {id:'mastercard',name:'Mastercard',  mono:'M', color:'#EB001B', bg:'#ffffff'},
-    {id:'uber',      name:'Uber',        mono:'U', color:'#000000', bg:'#ffffff'},
-    {id:'lyft',      name:'Lyft',        mono:'L', color:'#FF00BF', bg:'#ffffff'},
-    {id:'doordash',  name:'DoorDash',    mono:'D', color:'#FF3008', bg:'#ffffff'},
-    {id:'airbnb',    name:'Airbnb',      mono:'A', color:'#FF5A5F', bg:'#ffffff'},
-    {id:'starbucks', name:'Starbucks',   mono:'S', color:'#00704A', bg:'#ffffff'},
-    {id:'mcdonalds', name:"McDonald's",  mono:'M', color:'#FFC72C', bg:'#DA291C'},
-    {id:'kfc',       name:'KFC',         mono:'K', color:'#F40027', bg:'#ffffff'},
-    {id:'burgerking',name:'Burger King', mono:'B', color:'#D62300', bg:'#ffffff'},
-    {id:'subway',    name:'Subway',      mono:'S', color:'#008C15', bg:'#FFC600'},
-    {id:'pizza',     name:'Pizza Hut',   mono:'P', color:'#EE3124', bg:'#ffffff'},
-    {id:'cocacola',  name:'Coca-Cola',   mono:'C', color:'#F40000', bg:'#ffffff'},
-    {id:'pepsi',     name:'Pepsi',       mono:'P', color:'#004B93', bg:'#ffffff'},
-    {id:'sprite',    name:'Sprite',      mono:'S', color:'#00B140', bg:'#ffffff'},
-    {id:'fanta',     name:'Fanta',       mono:'F', color:'#FF6600', bg:'#0066B3'},
-    {id:'redbull',   name:'Red Bull',    mono:'R', color:'#FB0007', bg:'#FFC900'},
-    {id:'monster',   name:'Monster',     mono:'M', color:'#00FF00', bg:'#000000'},
-    {id:'gatorade',  name:'Gatorade',    mono:'G', color:'#F36C21', bg:'#ffffff'},
-    {id:'oreo',      name:'Oreo',        mono:'O', color:'#0066B3', bg:'#ffffff'},
-    {id:'kitkat',    name:'KitKat',      mono:'K', color:'#D70029', bg:'#ffffff'},
-    {id:'snickers',  name:'Snickers',    mono:'S', color:'#5C2C1A', bg:'#FFCB05'},
-    {id:'mars',      name:'Mars',        mono:'M', color:'#000000', bg:'#FFCB05'},
-    {id:'mm',        name:"M&M's",       mono:'M', color:'#FFCC00', bg:'#532A1B'},
-    {id:'hershey',   name:'Hershey',     mono:'H', color:'#653716', bg:'#ffffff'},
-    {id:'nutella',   name:'Nutella',     mono:'N', color:'#000000', bg:'#FFFFFF'},
-    {id:'cheerios',  name:'Cheerios',    mono:'C', color:'#FFC72C', bg:'#FFFFFF'},
-    {id:'pringles',  name:'Pringles',    mono:'P', color:'#D80000', bg:'#FFCB05'},
-    {id:'doritos',   name:'Doritos',     mono:'D', color:'#E2231A', bg:'#000000'},
-    {id:'lays',      name:"Lay's",       mono:'L', color:'#FFD700', bg:'#E2231A'},
-    {id:'cheetos',   name:'Cheetos',     mono:'C', color:'#F37021', bg:'#ffffff'},
-    {id:'goldfish',  name:'Goldfish',    mono:'G', color:'#FF6600', bg:'#ffffff'},
-    {id:'nike',      name:'Nike',        mono:'N', color:'#000000', bg:'#ffffff'},
-    {id:'adidas',    name:'Adidas',      mono:'A', color:'#000000', bg:'#ffffff'},
-    {id:'puma',      name:'Puma',        mono:'P', color:'#000000', bg:'#ffffff'},
-    {id:'underarmour',name:'UA',         mono:'UA',color:'#000000', bg:'#ffffff'},
-    {id:'newbalance',name:'NB',          mono:'NB',color:'#CF0A2C', bg:'#ffffff'},
-    {id:'reebok',    name:'Reebok',      mono:'R', color:'#000000', bg:'#ffffff'},
-    {id:'levis',     name:"Levi's",      mono:'L', color:'#E2231A', bg:'#ffffff'},
-    {id:'gap',       name:'Gap',         mono:'G', color:'#002A5C', bg:'#ffffff'},
-    {id:'hm',        name:'H&M',         mono:'H', color:'#E50010', bg:'#ffffff'},
-    {id:'uniqlo',    name:'Uniqlo',      mono:'U', color:'#FF0000', bg:'#ffffff'},
-    {id:'zara',      name:'Zara',        mono:'Z', color:'#000000', bg:'#ffffff'},
-    {id:'target',    name:'Target',      mono:'T', color:'#CC0000', bg:'#ffffff'},
-    {id:'walmart',   name:'Walmart',     mono:'W', color:'#FFC220', bg:'#0071CE'},
-    {id:'costco',    name:'Costco',      mono:'C', color:'#E32B2B', bg:'#005DAA'},
-    {id:'ikea',      name:'IKEA',        mono:'I', color:'#FFDA1A', bg:'#0058AB'},
-    {id:'fedex',     name:'FedEx',       mono:'F', color:'#FF6600', bg:'#4D148C'},
-    {id:'ups',       name:'UPS',         mono:'U', color:'#FFB500', bg:'#351C15'},
-    {id:'usps',      name:'USPS',        mono:'P', color:'#004B87', bg:'#EE3124'},
-    {id:'dhl',       name:'DHL',         mono:'D', color:'#FFCC00', bg:'#D40511'},
-    {id:'bmw',       name:'BMW',         mono:'M', color:'#0066B1', bg:'#ffffff'},
-    {id:'mercedes',  name:'Mercedes',    mono:'M', color:'#000000', bg:'#ffffff'},
-    {id:'audi',      name:'Audi',        mono:'A', color:'#000000', bg:'#ffffff'},
-    {id:'toyota',    name:'Toyota',      mono:'T', color:'#EB0A1E', bg:'#ffffff'},
-    {id:'honda',     name:'Honda',       mono:'H', color:'#CC0000', bg:'#ffffff'},
-    {id:'ford',      name:'Ford',        mono:'F', color:'#003478', bg:'#ffffff'},
-    {id:'chevy',     name:'Chevrolet',   mono:'C', color:'#FFC72C', bg:'#000000'},
-    {id:'volkswagen',name:'VW',          mono:'VW',color:'#001E50', bg:'#ffffff'},
-    {id:'porsche',   name:'Porsche',     mono:'P', color:'#000000', bg:'#FFD700'},
-    {id:'ferrari',   name:'Ferrari',     mono:'F', color:'#000000', bg:'#FFEF00'},
-    {id:'lambo',     name:'Lambo',       mono:'L', color:'#000000', bg:'#FFD700'},
-    {id:'figma',     name:'Figma',       mono:'F', color:'#F24E1E', bg:'#ffffff'},
-    {id:'notion',    name:'Notion',      mono:'N', color:'#000000', bg:'#ffffff'},
-    {id:'dropbox',   name:'Dropbox',     mono:'D', color:'#0061FF', bg:'#ffffff'},
-    {id:'asana',     name:'Asana',       mono:'A', color:'#F06A6A', bg:'#ffffff'},
-    {id:'trello',    name:'Trello',      mono:'T', color:'#0079BF', bg:'#ffffff'},
-    {id:'jira',      name:'Jira',        mono:'J', color:'#0052CC', bg:'#ffffff'},
-    {id:'gitlab',    name:'GitLab',      mono:'G', color:'#FC6D26', bg:'#ffffff'},
-    {id:'bitbucket', name:'Bitbucket',   mono:'B', color:'#2684FF', bg:'#ffffff'},
-    {id:'docker',    name:'Docker',      mono:'D', color:'#2496ED', bg:'#ffffff'},
-    {id:'aws',       name:'AWS',         mono:'A', color:'#FF9900', bg:'#232F3E'},
-    {id:'azure',     name:'Azure',       mono:'A', color:'#0078D4', bg:'#ffffff'},
-    {id:'cloudflare',name:'Cloudflare',  mono:'C', color:'#F38020', bg:'#ffffff'},
-    {id:'mongodb',   name:'MongoDB',     mono:'M', color:'#47A248', bg:'#ffffff'},
-    {id:'firebase',  name:'Firebase',    mono:'F', color:'#FFCA28', bg:'#039BE5'},
-    {id:'vercel',    name:'Vercel',      mono:'V', color:'#000000', bg:'#ffffff'},
-    {id:'react',     name:'React',       mono:'R', color:'#61DAFB', bg:'#20232A'},
-    {id:'angular',   name:'Angular',     mono:'A', color:'#DD0031', bg:'#ffffff'},
-    {id:'vue',       name:'Vue',         mono:'V', color:'#4FC08D', bg:'#ffffff'},
-    {id:'nodejs',    name:'Node.js',     mono:'N', color:'#339933', bg:'#ffffff'},
-    {id:'python',    name:'Python',      mono:'Py',color:'#FFD43B', bg:'#3776AB'},
-    {id:'rust',      name:'Rust',        mono:'R', color:'#000000', bg:'#FFB300'},
-    {id:'go',        name:'Go',          mono:'Go',color:'#00ADD8', bg:'#ffffff'},
-    {id:'swift',     name:'Swift',       mono:'S', color:'#FA7343', bg:'#ffffff'}
+    {id:'adidas',     name:'Adidas',      mono:'a',  color:'#000000', bg:'#ffffff'},
+    {id:'apple',      name:'Apple',       mono:'',   color:'#000000', bg:'#ffffff'},
+    {id:'bmw',        name:'BMW',         mono:'M',  color:'#0066B1', bg:'#ffffff'},
+    {id:'cocacola',   name:'Coca-Cola',   mono:'C',  color:'#F40000', bg:'#ffffff'},
+    {id:'disney',     name:'Disney',      mono:'D',  color:'#1A1A1A', bg:'#ffffff'},
+    {id:'ebay',       name:'eBay',        mono:'e',  color:'#E53238', bg:'#ffffff'},
+    {id:'ghostbusters',name:'Ghostbusters',mono:'GB',color:'#FFFFFF', bg:'#E60012'},
+    {id:'ibm',        name:'IBM',         mono:'IBM',color:'#1F70C1', bg:'#ffffff'},
+    {id:'jpmorgan',   name:'JP Morgan',   mono:'JP', color:'#7B5E3B', bg:'#ffffff'},
+    {id:'kelloggs',   name:"Kellogg's",   mono:'K',  color:'#D60000', bg:'#ffffff'},
+    {id:'loreal',     name:"L'Oréal",     mono:'L',  color:'#000000', bg:'#ffffff'},
+    {id:'mcdonalds',  name:"McDonald's",  mono:'M',  color:'#FFC72C', bg:'#DA291C'},
+    {id:'nike',       name:'Nike',        mono:'N',  color:'#000000', bg:'#ffffff'},
+    {id:'nintendo',   name:'Nintendo',    mono:'N',  color:'#E60012', bg:'#ffffff'},
+    {id:'olympics',   name:'Olympics',    mono:'O',  color:'#0085C7', bg:'#ffffff'},
+    {id:'oracle',     name:'Oracle',      mono:'O',  color:'#F80000', bg:'#ffffff'},
+    {id:'pepsi',      name:'Pepsi',       mono:'P',  color:'#004B93', bg:'#ffffff'},
+    {id:'philips',    name:'Philips',     mono:'P',  color:'#0066A1', bg:'#ffffff'},
+    {id:'redbull',    name:'Red Bull',    mono:'RB', color:'#FB0007', bg:'#FFC900'},
+    {id:'sephora',    name:'Sephora',     mono:'S',  color:'#000000', bg:'#ffffff'},
+    {id:'starbucks',  name:'Starbucks',   mono:'S',  color:'#00704A', bg:'#ffffff'},
+    {id:'tide',       name:'Tide',        mono:'T',  color:'#FF6F00', bg:'#FFD600'},
+    {id:'ups',        name:'UPS',         mono:'U',  color:'#FFB500', bg:'#351C15'},
+    {id:'wb',         name:'WB',          mono:'WB', color:'#0E5DAA', bg:'#FFD200'},
+    {id:'walmart',    name:'Walmart',     mono:'W',  color:'#FFC220', bg:'#0071CE'},
+    {id:'yahoo',      name:'Yahoo',       mono:'Y',  color:'#6001D2', bg:'#ffffff'},
+    {id:'youtube',    name:'YouTube',     mono:'',   color:'#FF0000', bg:'#ffffff'}
   ];
 
   // BALLS = the active brands for this session (size = ROSTER_SIZE).
   // Sampled randomly from BRAND_POOL on every full reset.
   var BALLS = [];
 
-  var ROSTER_SIZE = 30;
+  // Use all available brands. If you grow BRAND_POOL beyond this, only
+  // ROSTER_SIZE will be shown each session (resampled on every reset).
+  var ROSTER_SIZE = Math.min(30, BRAND_POOL.length);
 
   function pickRandomRoster(){
     var pool = BRAND_POOL.slice();
@@ -666,19 +627,15 @@
   // Map brand id -> simpleicons CDN slug (only when different from id).
   // simpleicons.org slugs sometimes differ from human-readable names.
   var SLUG_OVERRIDES = {
-    nintendo: 'nintendoswitch',
-    twitter:  'x',
-    pizza:    'pizzahut',
-    cocacola: 'cocacola',
-    redbull:  'redbull',
-    mm:       'mmm',
-    underarmour: 'underarmour',
-    newbalance:  'newbalance',
-    burgerking:  'burgerking',
-    chevy:    'chevrolet',
-    lambo:    'lamborghini',
-    volkswagen: 'volkswagen',
-    nodejs:   'nodedotjs'
+    nintendo:  'nintendoswitch',
+    cocacola:  'cocacola',
+    redbull:   'redbull',
+    jpmorgan:  'jpmorganchase',
+    mcdonalds: 'mcdonalds',
+    kelloggs:  'kelloggs',
+    loreal:    'loreal',
+    wb:        'warnerbros.discovery',
+    ghostbusters: 'ghostbusters'
   };
   function brandSlug(ball){
     return SLUG_OVERRIDES[ball.id] || ball.id;
@@ -742,6 +699,7 @@
   ============================================================ */
   var mode = 'quick';
   var elimCount = 1;          // 1 or 2 losers eliminated per quick race
+  var sameTube = false;       // when true, all balls race down lane #2 together
   var trackSeed = Date.now(); // changes every race so pipes look different
   var selected = [];
   var racers = [];
@@ -815,10 +773,15 @@
     try{
       var v = localStorage.getItem('pwd-elim');
       if(v === '1' || v === '2') elimCount = parseInt(v, 10);
+      var t = localStorage.getItem('pwd-sametube');
+      if(t !== null) sameTube = t === '1';
     }catch(e){}
   }
   function saveSettings(){
-    try{ localStorage.setItem('pwd-elim', String(elimCount)); }catch(e){}
+    try{
+      localStorage.setItem('pwd-elim', String(elimCount));
+      localStorage.setItem('pwd-sametube', sameTube ? '1' : '0');
+    }catch(e){}
   }
 
   /* ============================================================
@@ -939,8 +902,31 @@
 
   var lanesGroup = svgEl('g');
   svg.appendChild(lanesGroup);
+  var plinkoGroup = svgEl('g');
+  svg.appendChild(plinkoGroup);
   var pathEls = [];
   var PATH_LENGTHS = [];
+  var currentScene = 'lanes';   // 'lanes' or 'plinko'
+
+  function showLanesScene(){
+    if(currentScene === 'lanes') return;
+    plinkoGroup.style.display = 'none';
+    lanesGroup.style.display = '';
+    // Restore visibility of standard top/bottom plates and lane numbers
+    if(topPlate) topPlate.style.display = '';
+    if(botPlate) botPlate.style.display = '';
+    laneNumbers.forEach(function(n){ n.style.display = ''; });
+    currentScene = 'lanes';
+  }
+  function showPlinkoScene(){
+    if(currentScene === 'plinko') return;
+    lanesGroup.style.display = 'none';
+    plinkoGroup.style.display = '';
+    if(topPlate) topPlate.style.display = 'none';
+    if(botPlate) botPlate.style.display = 'none';
+    laneNumbers.forEach(function(n){ n.style.display = 'none'; });
+    currentScene = 'plinko';
+  }
 
   function approxLength(d){
     var t = svgEl('path',{d:d,fill:'none',stroke:'none'});
@@ -957,14 +943,20 @@
     return p;
   }
 
-  function rebuildLanes(seedBase){
+  function rebuildLanes(seedBase, sameTubeMode){
     // Wipe existing lane content
     while(lanesGroup.firstChild) lanesGroup.removeChild(lanesGroup.firstChild);
     pathEls = [];
 
     var lanePaths = LANE_X.map(function(x,i){ return buildSerpentinePath(x, seedBase + i*9999); });
 
-    lanePaths.forEach(function(d,i){
+    // In same-tube mode, only draw the middle lane (index 1).
+    // pathEls is still populated with 3 entries (all pointing to the
+    // middle path) so race code that indexes by ball lane keeps working.
+    var lanesToDraw = sameTubeMode ? [1] : [0, 1, 2];
+
+    lanesToDraw.forEach(function(i){
+      var d = lanePaths[i];
       var layers = [
         {stroke:LANE_TINTS[i].deep, w:46, op:'.4'},
         {stroke:'url(#laneFill'+i+')', w:38, op:null},
@@ -982,7 +974,14 @@
         lanesGroup.appendChild(svgEl('circle',{cx:pt.x,cy:pt.y,r:23,fill:'none',stroke:'url(#brassDark)','stroke-width':5,opacity:.95}));
         lanesGroup.appendChild(svgEl('circle',{cx:pt.x,cy:pt.y-1,r:23,fill:'none',stroke:'#fff8c8','stroke-width':1.4,opacity:.7}));
       }
-      var meas = svgEl('path',{d:d,fill:'none',stroke:'none'});
+    });
+
+    // Always create measurement paths for all 3 lanes. In same-tube
+    // mode, all 3 entries point at the middle path so any ball can
+    // be looked up by its original index without errors.
+    LANE_X.forEach(function(_, i){
+      var dForMeasure = sameTubeMode ? lanePaths[1] : lanePaths[i];
+      var meas = svgEl('path',{d:dForMeasure,fill:'none',stroke:'none'});
       lanesGroup.appendChild(meas);
       pathEls.push(meas);
     });
@@ -993,13 +992,142 @@
   // Initial build
   rebuildLanes(1234);
 
+  /* ============================================================
+     PLINKO SCENE
+  ============================================================ */
+  var PLINKO = {
+    top: 160,            // Pegs start lower — gives funnel + drop space at top
+    bottom: 600,
+    rows: 8,
+    pegRadius: 7,        // Slightly larger pegs for better collisions
+    slotCenters: [180, 300, 420],
+    slotWidth: 90,
+    slotHeight: 60,
+    ballRadius: 13,
+    pegPositions: []
+  };
+
+  function rebuildPlinko(){
+    // Wipe existing plinko content
+    while(plinkoGroup.firstChild) plinkoGroup.removeChild(plinkoGroup.firstChild);
+    PLINKO.pegPositions = [];
+
+    var top = PLINKO.top, bot = PLINKO.bottom;
+    var rows = PLINKO.rows;
+    var rowH = (bot - 80 - top) / rows;  // leave room above slots
+
+    // Background board panel
+    plinkoGroup.appendChild(svgEl('rect', {
+      x: 60, y: top - 30, width: 480, height: bot - top + 60, rx: 18,
+      fill: '#3a1268', opacity: 0.55
+    }));
+    // Inner highlight
+    plinkoGroup.appendChild(svgEl('rect', {
+      x: 64, y: top - 26, width: 472, height: bot - top + 52, rx: 14,
+      fill: 'none', stroke: 'rgba(255,255,255,.2)', 'stroke-width': 1.5
+    }));
+
+    // Top funnel — drop hole at center
+    plinkoGroup.appendChild(svgEl('rect', {
+      x: 50, y: 6, width: 500, height: 50, rx: 14,
+      fill: 'url(#topPlate)', stroke: '#6a3a08', 'stroke-width': 2.5
+    }));
+    plinkoGroup.appendChild(svgEl('circle', {
+      cx: 300, cy: 32, r: 22, fill: '#1a0a32',
+      stroke: 'url(#brassDark)', 'stroke-width': 3.5
+    }));
+    plinkoGroup.appendChild(svgEl('circle', {
+      cx: 300, cy: 30, r: 22, fill: 'none', stroke: '#fff8c8',
+      'stroke-width': 1, opacity: 0.5
+    }));
+    // Decorative rivets
+    [80, 140, 460, 520].forEach(function(x){
+      plinkoGroup.appendChild(svgEl('circle', {cx:x, cy:32, r:3.5, fill:'#5a2a00'}));
+      plinkoGroup.appendChild(svgEl('circle', {cx:x, cy:31, r:1.4, fill:'#fff8c8'}));
+    });
+
+    // Triangular peg field — even rows have 5 pegs, odd rows have 4 pegs
+    // staggered halfway between. All pegs comfortably inside the rails.
+    for(var r=0; r<rows; r++){
+      var yPeg = top + r * rowH;
+      var pegsInRow, startX, spacing = 80;
+      if(r % 2 === 0){
+        // Even row: 5 pegs centered
+        pegsInRow = 5;
+        startX = 300 - 2 * spacing;   // 140, 220, 300, 380, 460
+      } else {
+        // Odd row: 4 pegs offset between even-row pegs
+        pegsInRow = 4;
+        startX = 300 - 1.5 * spacing; // 180, 260, 340, 420
+      }
+      for(var c=0; c<pegsInRow; c++){
+        var xPeg = startX + c * spacing;
+        // Glow ring
+        plinkoGroup.appendChild(svgEl('circle', {
+          cx: xPeg, cy: yPeg, r: PLINKO.pegRadius + 3,
+          fill: '#ffd84a', opacity: 0.25
+        }));
+        // Peg body — brass
+        plinkoGroup.appendChild(svgEl('circle', {
+          cx: xPeg, cy: yPeg, r: PLINKO.pegRadius,
+          fill: 'url(#brassDark)', stroke: '#6a3a08', 'stroke-width': 1
+        }));
+        // Highlight
+        plinkoGroup.appendChild(svgEl('circle', {
+          cx: xPeg - 2, cy: yPeg - 2, r: PLINKO.pegRadius * 0.35,
+          fill: '#fff8c8', opacity: 0.8
+        }));
+        PLINKO.pegPositions.push({x: xPeg, y: yPeg});
+      }
+    }
+
+    // Bottom slots (3) — drawn but winner highlighted later
+    var slotY = bot - 10;
+    var slotW = PLINKO.slotWidth, slotH = PLINKO.slotHeight;
+    PLINKO.slotCenters.forEach(function(cx, i){
+      var sx = cx - slotW / 2;
+      // Slot background (darker)
+      plinkoGroup.appendChild(svgEl('rect', {
+        x: sx, y: slotY, width: slotW, height: slotH, rx: 8,
+        fill: '#1a0a32', stroke: 'url(#brassDark)', 'stroke-width': 3,
+        'class': 'plinko-slot plinko-slot-' + i
+      }));
+      // Slot highlight ring
+      plinkoGroup.appendChild(svgEl('rect', {
+        x: sx + 3, y: slotY + 3, width: slotW - 6, height: slotH - 6, rx: 6,
+        fill: 'none', stroke: '#fff8c8', 'stroke-width': 1, opacity: 0.4
+      }));
+      // Slot label "?"
+      var lbl = svgEl('text', {
+        x: cx, y: slotY + slotH / 2 + 2,
+        'text-anchor': 'middle', 'dominant-baseline': 'central',
+        'font-family': 'Bungee, cursive', 'font-size': 28,
+        fill: '#fff8c8', opacity: 0.5,
+        'class': 'plinko-slot-lbl plinko-slot-lbl-' + i
+      });
+      lbl.textContent = '?';
+      plinkoGroup.appendChild(lbl);
+    });
+
+    // Side rails
+    plinkoGroup.appendChild(svgEl('line', {
+      x1: 80, y1: top - 5, x2: 80, y2: bot + 50,
+      stroke: 'url(#brassDark)', 'stroke-width': 4
+    }));
+    plinkoGroup.appendChild(svgEl('line', {
+      x1: 520, y1: top - 5, x2: 520, y2: bot + 50,
+      stroke: 'url(#brassDark)', 'stroke-width': 4
+    }));
+  }
+
   // Top plate
   var topPlate = svgEl('g');
   topPlate.appendChild(svgEl('rect',{x:50,y:6,width:500,height:50,rx:14,fill:'url(#topPlate)',stroke:'#6a3a08','stroke-width':2.5}));
   topPlate.appendChild(svgEl('rect',{x:54,y:10,width:492,height:42,rx:11,fill:'none',stroke:'#fff8c8','stroke-width':1.5,opacity:.6}));
-  LANE_X.forEach(function(x){
-    topPlate.appendChild(svgEl('circle',{cx:x,cy:32,r:18,fill:'#1a0a32',stroke:'url(#brassDark)','stroke-width':3}));
-    topPlate.appendChild(svgEl('circle',{cx:x,cy:30,r:18,fill:'none',stroke:'#fff8c8','stroke-width':1,opacity:.5}));
+  LANE_X.forEach(function(x, i){
+    var portClass = (i === 1) ? 'port-mid' : 'port-side';
+    topPlate.appendChild(svgEl('circle',{cx:x,cy:32,r:18,fill:'#1a0a32',stroke:'url(#brassDark)','stroke-width':3,'class':portClass}));
+    topPlate.appendChild(svgEl('circle',{cx:x,cy:30,r:18,fill:'none',stroke:'#fff8c8','stroke-width':1,opacity:.5,'class':portClass}));
   });
   [80,140,520,460].forEach(function(x){
     topPlate.appendChild(svgEl('circle',{cx:x,cy:32,r:3,fill:'#5a2a00'}));
@@ -1007,10 +1135,13 @@
   });
   svg.appendChild(topPlate);
 
+  var laneNumbers = [];
   LANE_X.forEach(function(x,i){
-    var t = svgEl('text',{x:x,y:38,'text-anchor':'middle','font-family':'Bungee, cursive','font-size':16,fill:'#fff8c8','font-weight':'700'});
+    var portClass = (i === 1) ? 'port-mid' : 'port-side';
+    var t = svgEl('text',{x:x,y:38,'text-anchor':'middle','font-family':'Bungee, cursive','font-size':16,fill:'#fff8c8','font-weight':'700','class':portClass});
     t.textContent = i+1;
     svg.appendChild(t);
+    laneNumbers.push(t);
   });
 
   // Bottom plate
@@ -1018,8 +1149,9 @@
   botPlate.appendChild(svgEl('rect',{x:40,y:660,width:520,height:34,rx:10,fill:'url(#bottomPlate)',stroke:'#6a3a08','stroke-width':2.5}));
   botPlate.appendChild(svgEl('rect',{x:46,y:666,width:508,height:6,rx:3,fill:'#1a0a32',opacity:.5}));
   LANE_X.forEach(function(x,i){
-    botPlate.appendChild(svgEl('rect',{x:x-24,y:648,width:48,height:24,rx:7,fill:LANE_TINTS[i].glow,stroke:'#6a3a08','stroke-width':2}));
-    botPlate.appendChild(svgEl('rect',{x:x-16,y:653,width:32,height:3,rx:1.5,fill:'#fff8c8',opacity:.8}));
+    var gateClass = (i === 1) ? 'gate-mid' : 'gate-side';
+    botPlate.appendChild(svgEl('rect',{x:x-24,y:648,width:48,height:24,rx:7,fill:LANE_TINTS[i].glow,stroke:'#6a3a08','stroke-width':2,'class':gateClass}));
+    botPlate.appendChild(svgEl('rect',{x:x-16,y:653,width:32,height:3,rx:1.5,fill:'#fff8c8',opacity:.8,'class':gateClass}));
   });
   svg.appendChild(botPlate);
 
@@ -1090,6 +1222,7 @@
   var confirmOverlay=$('confirmOverlay'),confirmTitle=$('confirmTitle'),confirmMsg=$('confirmMsg'),confirmYes=$('confirmYes'),confirmNo=$('confirmNo');
   var modeBar = document.querySelector('.mode-bar');
   var elimBar = $('elimBar');
+  var tubeBar = $('tubeBar');
   var randomizeBtn = $('randomizeBtn');
   var clearPickBtn = $('clearPickBtn');
 
@@ -1118,7 +1251,16 @@
   /* ============================================================
      PICKER
   ============================================================ */
-  function getPickRequirement(){ return mode==='tourney' ? 8 : 3; }
+  function getPickRequirement(){
+    if(mode === 'tourney') return 8;
+    if(mode === 'plinko') return 1;
+    return 3;
+  }
+  function pickButtonLabel(){
+    if(mode === 'tourney') return '🏆 START TOURNAMENT';
+    if(mode === 'plinko') return '🎯 CHOOSE BALL';
+    return '🎱 PICK BALLS';
+  }
   function findBall(id){
     // Search active roster first, then full pool (for history items)
     for(var i=0;i<BALLS.length;i++) if(BALLS[i].id===id) return BALLS[i];
@@ -1133,7 +1275,9 @@
   function renderPicker(){
     var max = getPickRequirement();
     pickMaxEl.textContent = max;
-    pickerTitle.textContent = mode==='tourney' ? ('CHOOSE '+max+' CONTESTANTS') : ('CHOOSE '+max+' RACERS');
+    if(mode === 'tourney') pickerTitle.textContent = 'CHOOSE ' + max + ' CONTESTANTS';
+    else if(mode === 'plinko') pickerTitle.textContent = 'CHOOSE YOUR BALL';
+    else pickerTitle.textContent = 'CHOOSE ' + max + ' RACERS';
 
     var elimCount = Object.keys(eliminated).length;
     var available = BALLS.length - elimCount;
@@ -1211,8 +1355,17 @@
   confirmPick.addEventListener('click', function(){
     SFX.pop();
     picker.classList.remove('open');
-    if(mode==='tourney') startTournament(selected.map(findBall));
-    else { racers = selected.map(findBall); renderPlatform(); leverBtn.disabled = racers.length!==3; }
+    if(mode === 'tourney'){
+      startTournament(selected.map(findBall));
+    } else if(mode === 'plinko'){
+      racers = selected.map(findBall);
+      renderPlatform();
+      leverBtn.disabled = racers.length !== 1;
+    } else {
+      racers = selected.map(findBall);
+      renderPlatform();
+      leverBtn.disabled = racers.length !== 3;
+    }
   });
 
   // Random pick — auto-fill the selection from available balls
@@ -1241,18 +1394,32 @@
 
   function renderPlatform(){
     var slots = platform.querySelectorAll('.slot');
+    // In plinko mode, place the single ball in the middle slot
+    var displayRacers = racers;
+    if(mode === 'plinko' && racers.length === 1){
+      displayRacers = [null, racers[0], null];
+    }
     for(var i=0;i<slots.length;i++){
       slots[i].innerHTML = '';
-      if(racers[i]){
-        var b = racers[i];
+      var b = displayRacers[i];
+      if(b){
         var p = document.createElement('div');
         p.className = 'placed'; p.style.background = b.bg;
         p.innerHTML = ballIconHTML(b);
         slots[i].appendChild(p);
       }
     }
-    if(mode==='tourney' && racers.length===2) slots[2].style.visibility = 'hidden';
-    else slots[2].style.visibility = '';
+    // Slot visibility based on mode
+    if(mode === 'tourney' && racers.length === 2){
+      slots[0].style.visibility = '';
+      slots[2].style.visibility = 'hidden';
+    } else if(mode === 'plinko' && racers.length === 1){
+      slots[0].style.visibility = 'hidden';
+      slots[2].style.visibility = 'hidden';
+    } else {
+      slots[0].style.visibility = '';
+      slots[2].style.visibility = '';
+    }
   }
 
   modeBar.addEventListener('click', function(e){
@@ -1267,11 +1434,28 @@
     renderPlatform();
     leverBtn.disabled = true;
     pickBtn.disabled = false;
-    pickBtn.textContent = mode==='tourney' ? '🏆 START TOURNAMENT' : '🎱 PICK BALLS';
+    pickBtn.textContent = pickButtonLabel();
     bracketOverlay.classList.remove('open');
-    // Elim toggle is irrelevant in tournament mode (always 1v1)
-    if(mode === 'tourney') elimBar.classList.add('tourney-mode');
-    else elimBar.classList.remove('tourney-mode');
+    // Elim & tube toggles are irrelevant in tournament & plinko modes
+    if(mode === 'tourney' || mode === 'plinko'){
+      elimBar.classList.add('tourney-mode');
+      tubeBar.classList.add('tourney-mode');
+    } else {
+      elimBar.classList.remove('tourney-mode');
+      tubeBar.classList.remove('tourney-mode');
+    }
+    // Show appropriate scene
+    if(mode === 'plinko'){
+      // Pre-render preview plinko scene so user sees what they're getting
+      rebuildPlinko();
+      showPlinkoScene();
+    } else {
+      showLanesScene();
+    }
+    // Clear any leftover ball runners
+    var olds = svg.querySelectorAll('.ball-runner');
+    for(var k=0;k<olds.length;k++) olds[k].parentNode.removeChild(olds[k]);
+    winnerTag.classList.remove('show');
   });
 
   // Elimination count toggle (1 or 2 losers per quick race)
@@ -1283,6 +1467,18 @@
     for(var i=0;i<pills.length;i++) pills[i].classList.remove('active');
     btn.classList.add('active');
     elimCount = parseInt(btn.dataset.elim, 10);
+    saveSettings();
+  });
+
+  // Same-tube toggle (3 balls go down lane #2 together)
+  tubeBar.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest && e.target.closest('.elim-pill');
+    if(!btn || racing) return;
+    SFX.click();
+    var pills = tubeBar.querySelectorAll('.elim-pill');
+    for(var i=0;i<pills.length;i++) pills[i].classList.remove('active');
+    btn.classList.add('active');
+    sameTube = btn.dataset.tube === 'same';
     saveSettings();
   });
 
@@ -1298,31 +1494,68 @@
   });
 
   function startRace(){
-    if(racing || racers.length<2) return;
+    var minRacers = (mode === 'plinko') ? 1 : 2;
+    if(racing || racers.length < minRacers) return;
     racing = true; leverBtn.disabled=true; pickBtn.disabled=true;
     winnerTag.classList.remove('show');
     confettiEl.classList.remove('show'); confettiEl.innerHTML='';
     var ctx = getAudio();
     if(ctx && ctx.state==='suspended'){ try{ctx.resume();}catch(e){} }
 
+    if(mode === 'plinko'){ startPlinko(); return; }
+
     // Generate fresh pipe shapes for this race
     trackSeed = Math.floor(Math.random() * 999999) + 1;
-    rebuildLanes(trackSeed);
+    var useSameTube = sameTube && mode === 'quick' && racers.length === 3;
+    rebuildLanes(trackSeed, useSameTube);
+
+    // In same-tube mode, all balls use lane 1 (which is the only one drawn)
+    var laneIdxFor = useSameTube
+      ? function(){ return 1; }
+      : function(i){ return i; };
+
+    if(useSameTube){
+      svg.classList.add('same-tube');
+    } else {
+      svg.classList.remove('same-tube');
+    }
 
     SFX.steam(); setTimeout(function(){SFX.whoosh();}, 200);
     var olds = svg.querySelectorAll('.ball-runner');
     for(var k=0;k<olds.length;k++) olds[k].parentNode.removeChild(olds[k]);
     var ballEls = [];
-    racers.forEach(function(b,i){ var g = createBallGroup(b,i); svg.appendChild(g); ballEls.push(g); });
+    racers.forEach(function(b,i){
+      var ln = laneIdxFor(i);
+      var g = createBallGroup(b, ln);
+      svg.appendChild(g);
+      ballEls.push(g);
+    });
+
     var baseDuration = 3500 + Math.random()*1500;
-    var rd = racers.map(function(){ return {bias:0.85+Math.random()*0.30, wA:0.012+Math.random()*0.018, wF:3+Math.random()*3, ph:Math.random()*Math.PI*2, fin:false, finishOrder:-1}; });
+    // In same-tube mode, give each ball a small starting offset along
+    // the path so they don't stack exactly. Encoded in `headStart`.
+    var rd = racers.map(function(_,i){
+      return {
+        bias: 0.85 + Math.random()*0.30,
+        wA:   0.012 + Math.random()*0.018,
+        wF:   3 + Math.random()*3,
+        ph:   Math.random()*Math.PI*2,
+        // Tiny stagger (~3% of path) so balls aren't perfectly aligned
+        headStart: useSameTube ? (i * 0.025) : 0,
+        fin: false,
+        finishOrder: -1
+      };
+    });
     var start = performance.now(), firstFin = -1, finishedCount = 0, lastTick=0;
+
     function frame(now){
       var el = now - start, allDone = true;
       if(soundOn && el-lastTick > 280 && el < baseDuration*0.95){ SFX.tick(); lastTick=el; }
       for(var i=0;i<racers.length;i++){
         var r = rd[i], dur = baseDuration / r.bias, t = el / dur;
         t += Math.sin(el/1000 * r.wF + r.ph) * r.wA;
+        // Small head-start offset (same-tube only)
+        t += r.headStart;
         if(t<0) t=0; else if(t>1) t=1;
         if(!r.fin && t>=1){
           r.fin=true;
@@ -1330,13 +1563,12 @@
           if(firstFin===-1){ firstFin=i; announceWinner(i); }
         }
         if(!r.fin) allDone=false;
-        var p = pathEls[i].getPointAtLength(PATH_LENGTHS[i]*t);
+        var ln = laneIdxFor(i);
+        var p = pathEls[ln].getPointAtLength(PATH_LENGTHS[ln]*t);
         ballEls[i].setAttribute('transform','translate('+p.x+','+p.y+')');
       }
       if(el < baseDuration*1.4 && !allDone){ animationId = requestAnimationFrame(frame); }
       else {
-        // Anyone who didn't finish in time still gets a finish position
-        // ordered by their progress (highest t = next finisher)
         var unfinished = [];
         for(var u=0;u<racers.length;u++){
           if(!rd[u].fin){
@@ -1348,7 +1580,8 @@
         unfinished.forEach(function(item){ rd[item.idx].finishOrder = finishedCount++; });
 
         for(var j=0;j<racers.length;j++){
-          var pp = pathEls[j].getPointAtLength(PATH_LENGTHS[j]);
+          var ln2 = laneIdxFor(j);
+          var pp = pathEls[ln2].getPointAtLength(PATH_LENGTHS[ln2]);
           ballEls[j].setAttribute('transform','translate('+pp.x+','+pp.y+')');
         }
         racing=false; pickBtn.disabled=false;
@@ -1356,6 +1589,314 @@
       }
     }
     animationId = requestAnimationFrame(frame);
+  }
+
+  /* ============================================================
+     PLINKO RACE — real physics
+  ============================================================ */
+  function startPlinko(){
+    showPlinkoScene();
+    rebuildPlinko();
+
+    SFX.steam(); setTimeout(function(){SFX.whoosh();}, 200);
+
+    // Remove any prior runners
+    var olds = svg.querySelectorAll('.ball-runner, .plinko-winner-glow');
+    for(var k=0;k<olds.length;k++) olds[k].parentNode.removeChild(olds[k]);
+
+    // Decide outcome FIRST — random winner slot, random landing slot
+    var winnerSlot = Math.floor(Math.random() * 3);
+    var landingSlot = Math.floor(Math.random() * 3);
+    var targetX = PLINKO.slotCenters[landingSlot];
+
+    // Create the ball at the top funnel
+    var ball = createBallGroup(racers[0], 0);
+    var startX = 300, startY = 70;
+    ball.setAttribute('transform', 'translate(' + startX + ',' + startY + ')');
+    plinkoGroup.appendChild(ball);
+
+    // ---- Physics state ----
+    var pos = { x: startX, y: startY };
+    var vel = { x: (Math.random() - 0.5) * 30, y: 0 };  // tiny initial sideways jitter
+
+    // Constants tuned for ~600x700 viewBox & visible motion
+    var GRAVITY = 720;            // px/s^2 — strong gravity
+    var DT = 1 / 60;              // 60 Hz fixed timestep
+    var RESTITUTION = 0.55;       // bounciness on peg (0=dead, 1=elastic)
+    var WALL_RESTITUTION = 0.6;
+    var FLOOR_RESTITUTION = 0.35;
+    var FRICTION_AIR = 0.998;     // tiny per-step velocity dampening
+    var FRICTION_BOUNCE = 0.92;   // tangential damping on collision
+    var BIAS_ACCEL = 280;         // px/s^2 horizontal nudge toward target
+    var MAX_VX = 320;             // cap horizontal speed for control
+    var BALL_R = PLINKO.ballRadius;
+    var PEG_R  = PLINKO.pegRadius;
+    var COLLISION_R = BALL_R + PEG_R;
+    var WALL_LEFT  = 80 + BALL_R + 2;
+    var WALL_RIGHT = 520 - BALL_R - 2;
+    var SLOT_TOP_Y = PLINKO.bottom - 10;     // y where slots begin
+    var SLOT_FLOOR = SLOT_TOP_Y + PLINKO.slotHeight - BALL_R - 4;
+
+    // Track recent collisions to prevent re-colliding with the same peg
+    // multiple frames in a row (which causes jitter)
+    var lastPegHit = -1;
+    var settled = false;
+    var settleStart = 0;
+
+    // Sound throttle
+    var lastTickT = 0;
+
+    var pegs = PLINKO.pegPositions;
+    var lastTime = performance.now();
+    var accumulator = 0;
+    var totalSimTime = 0;
+    var maxSimTime = 8.0;  // hard timeout — physics can't run forever
+
+    function step(){
+      // Apply gravity
+      vel.y += GRAVITY * DT;
+
+      // Apply horizontal bias toward target slot.
+      // Strength scales with how far down the ball is — stronger near the
+      // bottom so the ball reliably reaches the chosen slot, but weak at
+      // the top so the bouncing still looks natural and unpredictable.
+      var depthFraction = Math.max(0, Math.min(1, (pos.y - PLINKO.top) / (PLINKO.bottom - PLINKO.top)));
+      var biasStrength = 0.3 + depthFraction * 1.4;  // 0.3 → 1.7
+      var dx = targetX - pos.x;
+      var biasDir = (dx > 0) ? 1 : (dx < 0) ? -1 : 0;
+      // Only nudge if not extremely close to target column
+      if(Math.abs(dx) > 6){
+        vel.x += biasDir * BIAS_ACCEL * biasStrength * DT;
+      }
+
+      // Air friction
+      vel.x *= FRICTION_AIR;
+      vel.y *= FRICTION_AIR;
+
+      // Cap horizontal velocity so ball doesn't go zooming sideways
+      if(vel.x >  MAX_VX) vel.x =  MAX_VX;
+      if(vel.x < -MAX_VX) vel.x = -MAX_VX;
+
+      // Integrate position
+      pos.x += vel.x * DT;
+      pos.y += vel.y * DT;
+
+      // Wall collisions (rails on each side)
+      if(pos.x < WALL_LEFT){
+        pos.x = WALL_LEFT;
+        vel.x = Math.abs(vel.x) * WALL_RESTITUTION;
+      } else if(pos.x > WALL_RIGHT){
+        pos.x = WALL_RIGHT;
+        vel.x = -Math.abs(vel.x) * WALL_RESTITUTION;
+      }
+
+      // Peg collisions
+      for(var i=0; i<pegs.length; i++){
+        var peg = pegs[i];
+        var ddx = pos.x - peg.x;
+        var ddy = pos.y - peg.y;
+        var distSq = ddx*ddx + ddy*ddy;
+        var minDist = COLLISION_R;
+        if(distSq < minDist * minDist){
+          var dist = Math.sqrt(distSq) || 0.001;
+          // Normal direction (peg → ball)
+          var nx = ddx / dist;
+          var ny = ddy / dist;
+          // Push ball outside the peg
+          var overlap = minDist - dist;
+          pos.x += nx * overlap;
+          pos.y += ny * overlap;
+
+          // Reflect velocity along normal: v' = v - (1+e)(v·n)n
+          var vDotN = vel.x * nx + vel.y * ny;
+          if(vDotN < 0){  // Only bounce if moving toward peg
+            var bounceFactor = (1 + RESTITUTION);
+            vel.x -= bounceFactor * vDotN * nx;
+            vel.y -= bounceFactor * vDotN * ny;
+            // Apply tangential damping so ball doesn't slide forever
+            vel.x *= FRICTION_BOUNCE;
+            vel.y *= FRICTION_BOUNCE;
+            // Add tiny random kick so ball doesn't get stuck in symmetric paths
+            vel.x += (Math.random() - 0.5) * 30;
+
+            // Sound (throttled)
+            if(soundOn && totalSimTime - lastTickT > 0.07 && i !== lastPegHit){
+              SFX.tick();
+              lastTickT = totalSimTime;
+            }
+            lastPegHit = i;
+          }
+        }
+      }
+
+      // Reached slot area?
+      if(pos.y > SLOT_TOP_Y){
+        // Determine which slot we're nearest to (by x position)
+        // and gently funnel into it
+        var nearestSlot = 0;
+        var nearestDist = Infinity;
+        for(var s=0; s<3; s++){
+          var d = Math.abs(pos.x - PLINKO.slotCenters[s]);
+          if(d < nearestDist){ nearestDist = d; nearestSlot = s; }
+        }
+        var slotCx = PLINKO.slotCenters[nearestSlot];
+        // Strong pull toward the chosen slot center (not landingSlot — natural slot)
+        // BUT: we want it to go to landingSlot. So override here:
+        slotCx = PLINKO.slotCenters[landingSlot];
+        var slotDx = slotCx - pos.x;
+        vel.x += slotDx * 8 * DT;     // strong centering force in slot funnel
+        vel.x *= 0.85;                // dampen lateral bouncing in slot
+
+        // Slot floor collision
+        if(pos.y > SLOT_FLOOR){
+          pos.y = SLOT_FLOOR;
+          if(vel.y > 0){
+            vel.y = -vel.y * FLOOR_RESTITUTION;
+          }
+          // Strong horizontal damping when on the floor
+          vel.x *= 0.7;
+        }
+
+        // Slot side walls — keep ball within slot
+        var slotLeft = slotCx - PLINKO.slotWidth / 2 + BALL_R + 2;
+        var slotRight = slotCx + PLINKO.slotWidth / 2 - BALL_R - 2;
+        if(pos.x < slotLeft && pos.y > SLOT_TOP_Y + 10){
+          pos.x = slotLeft; vel.x = Math.abs(vel.x) * 0.4;
+        } else if(pos.x > slotRight && pos.y > SLOT_TOP_Y + 10){
+          pos.x = slotRight; vel.x = -Math.abs(vel.x) * 0.4;
+        }
+
+        // Settled? (low velocity AND on floor for >0.4s)
+        var speed = Math.sqrt(vel.x*vel.x + vel.y*vel.y);
+        if(speed < 25 && Math.abs(pos.y - SLOT_FLOOR) < 4){
+          if(!settled){ settled = true; settleStart = totalSimTime; }
+          else if(totalSimTime - settleStart > 0.35){
+            return true;  // Done!
+          }
+        } else {
+          settled = false;
+        }
+      }
+
+      return false;
+    }
+
+    function frame(now){
+      var deltaSec = (now - lastTime) / 1000;
+      if(deltaSec > 0.1) deltaSec = 0.1;  // Clamp to avoid huge jumps
+      lastTime = now;
+      accumulator += deltaSec;
+
+      var done = false;
+      // Fixed-timestep physics loop
+      while(accumulator >= DT){
+        if(step()){ done = true; break; }
+        accumulator -= DT;
+        totalSimTime += DT;
+        if(totalSimTime > maxSimTime){ done = true; break; }
+      }
+
+      // Render current position
+      ball.setAttribute('transform', 'translate(' + pos.x + ',' + pos.y + ')');
+
+      if(!done){
+        animationId = requestAnimationFrame(frame);
+      } else {
+        // Snap to slot floor for tidy finish
+        var snapX = PLINKO.slotCenters[landingSlot];
+        var snapY = SLOT_FLOOR;
+        ball.setAttribute('transform', 'translate(' + snapX + ',' + snapY + ')');
+        revealPlinkoWinner(landingSlot, winnerSlot);
+      }
+    }
+    animationId = requestAnimationFrame(frame);
+  }
+
+  function revealPlinkoWinner(landingSlot, winnerSlot){
+    // Highlight all 3 slots — green for winner, gray for losers
+    for(var i = 0; i < 3; i++){
+      var slotRect = plinkoGroup.querySelector('.plinko-slot-' + i);
+      var slotLbl = plinkoGroup.querySelector('.plinko-slot-lbl-' + i);
+      if(!slotRect) continue;
+      if(i === winnerSlot){
+        slotRect.setAttribute('fill', '#1ac850');
+        slotRect.setAttribute('stroke', '#7be88a');
+        slotRect.setAttribute('stroke-width', 4);
+        if(slotLbl){ slotLbl.textContent = '🏆'; slotLbl.setAttribute('opacity', 1); }
+      } else {
+        slotRect.setAttribute('fill', '#5a1a3a');
+        slotRect.setAttribute('opacity', 0.6);
+        if(slotLbl){ slotLbl.textContent = '✕'; slotLbl.setAttribute('opacity', 0.6); slotLbl.setAttribute('fill', '#ff6a6a'); }
+      }
+    }
+
+    var won = (landingSlot === winnerSlot);
+    var ball = racers[0];
+
+    if(won){
+      SFX.win();
+      burstConfetti(ball.color);
+      winnerTag.textContent = '🏆 ' + ball.name.toUpperCase() + ' WINS!';
+      winnerTag.classList.add('show');
+    } else {
+      SFX.lose();
+      winnerTag.textContent = '💔 ' + ball.name.toUpperCase() + ' LOST';
+      winnerTag.classList.add('show');
+    }
+
+    // Record history & eliminations
+    if(won){
+      // Winner survives, no elimination
+      history.unshift({
+        ts: Date.now(), mode: 'plinko', winnerId: ball.id,
+        contestants: [ball.id]
+      });
+    } else {
+      // Loser is eliminated
+      eliminated[ball.id] = true;
+      saveEliminated();
+      history.unshift({
+        ts: Date.now(), mode: 'plinko', winnerId: null, loserId: ball.id,
+        contestants: [ball.id]
+      });
+    }
+    saveHistory();
+    raceNumber++;
+    raceNumEl.textContent = 'RACE ' + (raceNumber<10?'0':'') + raceNumber;
+
+    setTimeout(function(){
+      showPlinkoResultPopup(ball, won, landingSlot, winnerSlot);
+      racing = false;
+      pickBtn.disabled = false;
+    }, 1200);
+  }
+
+  function showPlinkoResultPopup(ball, won, landingSlot, winnerSlot){
+    var html = '<h2>' + (won ? '🎯 PLINKO WIN!' : '💔 PLINKO LOSS') + '</h2>';
+    html += '<div class="winner-block" style="' + (won ? '' : 'background:linear-gradient(135deg,#8a3a3a,#5a1a1a)') + '">';
+    html += '<span class="crown">' + (won ? '🏆' : '💔') + '</span>';
+    html += '<div class="ball-big" style="background:' + ball.bg + '">' + ballIconHTML(ball) + '</div>';
+    html += '<div class="label">' + (won ? 'WINNER!' : 'ELIMINATED') + '</div>';
+    html += '<div class="name">' + ball.name + '</div>';
+    html += '</div>';
+    html += '<div style="margin:10px 0;font-size:12px;color:rgba(255,255,255,.85);font-family:Bungee,cursive;letter-spacing:1px">';
+    html += 'BALL LANDED IN SLOT ' + (landingSlot + 1);
+    if(won){
+      html += '<br/>WINNER SLOT WAS ' + (winnerSlot + 1) + ' ✓';
+    } else {
+      html += '<br/>WINNER SLOT WAS ' + (winnerSlot + 1) + ' — SO CLOSE!';
+    }
+    html += '</div>';
+    html += '<button class="continue" id="resultContinue">PLAY AGAIN ▶</button>';
+    resultCard.innerHTML = html;
+    resultOverlay.classList.add('open');
+    $('resultContinue').addEventListener('click', function(){
+      SFX.click();
+      resultOverlay.classList.remove('open');
+      racers = [];
+      renderPlatform();
+      leverBtn.disabled = true;
+    });
   }
 
   function announceWinner(idx){
@@ -1489,10 +2030,13 @@
     for(var k=0;k<olds.length;k++) olds[k].parentNode.removeChild(olds[k]);
     renderPlatform();
     leverBtn.disabled=true; pickBtn.disabled=false;
-    pickBtn.textContent = mode==='tourney'?'🏆 START TOURNAMENT':'🎱 PICK BALLS';
+    pickBtn.textContent = pickButtonLabel();
     confettiEl.classList.remove('show'); confettiEl.innerHTML='';
     bracketOverlay.classList.remove('open');
     resultOverlay.classList.remove('open');
+    // Restore correct scene
+    if(mode === 'plinko'){ rebuildPlinko(); showPlinkoScene(); }
+    else { showLanesScene(); }
   }
 
   /* ============================================================
@@ -1611,13 +2155,26 @@
     }
     var html = '';
     history.forEach(function(h,i){
+      // Plinko losses: no winner, just a losing ball
+      if(h.mode === 'plinko' && !h.winnerId && h.loserId){
+        var l = findBall(h.loserId); if(!l) return;
+        html += '<div class="h-row"><div class="h-num">#'+(history.length-i)+'</div>';
+        html += '<div class="h-winner" style="background:'+l.bg+';filter:grayscale(.6);opacity:.7">'+ballIconHTML(l)+'</div>';
+        html += '<div class="h-info"><div class="name">'+l.name+' <span style="color:#ff6a6a;font-size:10px">💔 PLINKO LOSS</span></div>';
+        html += '<div class="vs">eliminated</div></div><div>✕</div></div>';
+        return;
+      }
       var w = findBall(h.winnerId); if(!w) return;
       var others = h.contestants.filter(function(c){return c!==h.winnerId;}).map(function(id){var b=findBall(id);return b?b.name:'';}).filter(Boolean).join(' · ');
-      html += '<div class="h-row"><div class="h-num">#'+(history.length-i)+'</div><div class="h-winner" style="background:'+w.bg+'">'+ballIconHTML(w)+'</div><div class="h-info"><div class="name">'+w.name+(h.mode==='tourney'?' <span style="color:#ffd84a;font-size:10px">🏆 CHAMP</span>':'')+'</div><div class="vs">vs '+others+'</div></div><div>🏆</div></div>';
+      var modeTag = '';
+      if(h.mode === 'tourney') modeTag = ' <span style="color:#ffd84a;font-size:10px">🏆 CHAMP</span>';
+      else if(h.mode === 'plinko') modeTag = ' <span style="color:#5de8b8;font-size:10px">🎯 PLINKO WIN</span>';
+      var vsLine = others ? ('vs ' + others) : 'solo plinko';
+      html += '<div class="h-row"><div class="h-num">#'+(history.length-i)+'</div><div class="h-winner" style="background:'+w.bg+'">'+ballIconHTML(w)+'</div><div class="h-info"><div class="name">'+w.name+modeTag+'</div><div class="vs">'+vsLine+'</div></div><div>🏆</div></div>';
     });
     historyList.innerHTML = html;
     var counts = {};
-    history.forEach(function(h){ counts[h.winnerId] = (counts[h.winnerId]||0)+1; });
+    history.forEach(function(h){ if(h.winnerId) counts[h.winnerId] = (counts[h.winnerId]||0)+1; });
     var sorted = Object.keys(counts).map(function(id){return {ball:findBall(id),n:counts[id]};}).filter(function(x){return x.ball;}).sort(function(a,b){return b.n-a.n;}).slice(0,5);
     if(sorted.length){
       leaderboard.style.display = 'block';
@@ -1643,6 +2200,13 @@
   for(var ep=0;ep<elimPills.length;ep++){
     if(parseInt(elimPills[ep].dataset.elim,10) === elimCount) elimPills[ep].classList.add('active');
     else elimPills[ep].classList.remove('active');
+  }
+  // Sync tube toggle UI to loaded value
+  var tubePills = tubeBar.querySelectorAll('.elim-pill');
+  for(var tp=0;tp<tubePills.length;tp++){
+    var isSame = tubePills[tp].dataset.tube === 'same';
+    if(isSame === sameTube) tubePills[tp].classList.add('active');
+    else tubePills[tp].classList.remove('active');
   }
   renderPlatform();
 
