@@ -114,7 +114,12 @@
     opacity:0.15;
     transition:opacity .3s;
   }
-  .svg-track .port-side, .svg-track .gate-side{transition:opacity .3s}
+  /* In two-tube mode (tournament), hide the middle port/gate */
+  .svg-track.two-tube .port-mid, .svg-track.two-tube .gate-mid{
+    opacity:0.15;
+    transition:opacity .3s;
+  }
+  .svg-track .port-side, .svg-track .gate-side, .svg-track .port-mid, .svg-track .gate-mid{transition:opacity .3s}
 
   .controls{flex:0 0 auto;margin:8px auto 0;width:100%;max-width:780px;display:flex;flex-direction:column;gap:8px}
   .platform{
@@ -943,17 +948,21 @@
     return p;
   }
 
-  function rebuildLanes(seedBase, sameTubeMode){
-    // Wipe existing lane content
+  function rebuildLanes(seedBase, sceneMode){
+    // sceneMode: 'all' (default) | 'sameTube' | 'twoTube'
+    // - 'all':      lanes 0, 1, 2 visible (3 lanes for quick race)
+    // - 'sameTube': only lane 1 (middle) visible
+    // - 'twoTube':  only lanes 0 and 2 visible (left + right, for tournament)
     while(lanesGroup.firstChild) lanesGroup.removeChild(lanesGroup.firstChild);
     pathEls = [];
+    sceneMode = sceneMode || 'all';
 
     var lanePaths = LANE_X.map(function(x,i){ return buildSerpentinePath(x, seedBase + i*9999); });
 
-    // In same-tube mode, only draw the middle lane (index 1).
-    // pathEls is still populated with 3 entries (all pointing to the
-    // middle path) so race code that indexes by ball lane keeps working.
-    var lanesToDraw = sameTubeMode ? [1] : [0, 1, 2];
+    var lanesToDraw;
+    if(sceneMode === 'sameTube') lanesToDraw = [1];
+    else if(sceneMode === 'twoTube') lanesToDraw = [0, 2];
+    else lanesToDraw = [0, 1, 2];
 
     lanesToDraw.forEach(function(i){
       var d = lanePaths[i];
@@ -976,12 +985,14 @@
       }
     });
 
-    // Always create measurement paths for all 3 lanes. In same-tube
-    // mode, all 3 entries point at the middle path so any ball can
-    // be looked up by its original index without errors.
+    // Always create measurement paths for all 3 lanes. In sameTube mode
+    // all 3 entries point at the middle path. In twoTube mode the
+    // middle entry just points at lane 0 (unused but valid).
     LANE_X.forEach(function(_, i){
-      var dForMeasure = sameTubeMode ? lanePaths[1] : lanePaths[i];
-      var meas = svgEl('path',{d:dForMeasure,fill:'none',stroke:'none'});
+      var d;
+      if(sceneMode === 'sameTube') d = lanePaths[1];
+      else d = lanePaths[i];
+      var meas = svgEl('path',{d:d,fill:'none',stroke:'none'});
       lanesGroup.appendChild(meas);
       pathEls.push(meas);
     });
@@ -1298,7 +1309,7 @@
      PICKER
   ============================================================ */
   function getPickRequirement(){
-    if(mode === 'tourney') return 8;
+    if(mode === 'tourney') return null;   // tournament uses all eligible balls
     if(mode === 'plinko') return 1;
     return 3;
   }
@@ -1320,9 +1331,8 @@
 
   function renderPicker(){
     var max = getPickRequirement();
-    pickMaxEl.textContent = max;
-    if(mode === 'tourney') pickerTitle.textContent = 'CHOOSE ' + max + ' CONTESTANTS';
-    else if(mode === 'plinko') pickerTitle.textContent = 'CHOOSE YOUR BALL';
+    pickMaxEl.textContent = max != null ? max : '';
+    if(mode === 'plinko') pickerTitle.textContent = 'CHOOSE YOUR BALL';
     else pickerTitle.textContent = 'CHOOSE ' + max + ' RACERS';
 
     var elimCount = Object.keys(eliminated).length;
@@ -1380,11 +1390,24 @@
     if(racing) return;
     SFX.click();
 
-    var available = eligibleBalls().length;
+    var available = eligibleBalls();
+
+    // Tournament mode: skip the picker, use all eligible balls
+    if(mode === 'tourney'){
+      if(available.length < 2){
+        customConfirm('Not enough balls!',
+          'Need at least 2 balls for a tournament. Reset to bring back eliminated balls?',
+          function(){ resetEliminations(); /* try again */ pickBtn.click(); });
+        return;
+      }
+      startTournament(available);
+      return;
+    }
+
     var needed = getPickRequirement();
-    if(available < needed){
+    if(available.length < needed){
       customConfirm('Not enough balls!',
-        'Only ' + available + ' balls left. Reset to bring back eliminated balls?',
+        'Only ' + available.length + ' balls left. Reset to bring back eliminated balls?',
         function(){ resetEliminations(); openPicker(); });
       return;
     }
@@ -1401,9 +1424,7 @@
   confirmPick.addEventListener('click', function(){
     SFX.pop();
     picker.classList.remove('open');
-    if(mode === 'tourney'){
-      startTournament(selected.map(findBall));
-    } else if(mode === 'plinko'){
+    if(mode === 'plinko'){
       racers = selected.map(findBall);
       renderPlatform();
       leverBtn.disabled = racers.length !== 1;
@@ -1440,10 +1461,13 @@
 
   function renderPlatform(){
     var slots = platform.querySelectorAll('.slot');
-    // In plinko mode, place the single ball in the middle slot
+    // Display layout depends on mode
     var displayRacers = racers;
     if(mode === 'plinko' && racers.length === 1){
       displayRacers = [null, racers[0], null];
+    } else if(mode === 'tourney' && racers.length === 2){
+      // Place 1st ball in left slot, 2nd in right slot (skip middle)
+      displayRacers = [racers[0], null, racers[1]];
     }
     for(var i=0;i<slots.length;i++){
       slots[i].innerHTML = '';
@@ -1458,12 +1482,15 @@
     // Slot visibility based on mode
     if(mode === 'tourney' && racers.length === 2){
       slots[0].style.visibility = '';
-      slots[2].style.visibility = 'hidden';
+      slots[1].style.visibility = 'hidden';   // hide middle
+      slots[2].style.visibility = '';
     } else if(mode === 'plinko' && racers.length === 1){
       slots[0].style.visibility = 'hidden';
+      slots[1].style.visibility = '';
       slots[2].style.visibility = 'hidden';
     } else {
       slots[0].style.visibility = '';
+      slots[1].style.visibility = '';
       slots[2].style.visibility = '';
     }
   }
@@ -1553,17 +1580,28 @@
     // Generate fresh pipe shapes for this race
     trackSeed = Math.floor(Math.random() * 999999) + 1;
     var useSameTube = sameTube && mode === 'quick' && racers.length === 3;
-    rebuildLanes(trackSeed, useSameTube);
+    var useTwoTube = mode === 'tourney' && racers.length === 2;
+    var sceneMode = useSameTube ? 'sameTube' : useTwoTube ? 'twoTube' : 'all';
+    rebuildLanes(trackSeed, sceneMode);
 
-    // In same-tube mode, all balls use lane 1 (which is the only one drawn)
-    var laneIdxFor = useSameTube
-      ? function(){ return 1; }
-      : function(i){ return i; };
+    // Lane mapping per racer:
+    // - sameTube: all balls go in lane 1
+    // - twoTube:  ball 0 in lane 0, ball 1 in lane 2 (skip middle)
+    // - normal:   ball i in lane i
+    var laneIdxFor;
+    if(useSameTube) laneIdxFor = function(){ return 1; };
+    else if(useTwoTube) laneIdxFor = function(i){ return i === 0 ? 0 : 2; };
+    else laneIdxFor = function(i){ return i; };
 
     if(useSameTube){
       svg.classList.add('same-tube');
     } else {
       svg.classList.remove('same-tube');
+    }
+    if(useTwoTube){
+      svg.classList.add('two-tube');
+    } else {
+      svg.classList.remove('two-tube');
     }
 
     SFX.steam(); setTimeout(function(){SFX.whoosh();}, 200);
@@ -1998,6 +2036,9 @@
     // - Quick race (3 balls): bottom `elimCount` (1 or 2) get eliminated
     var elimList, safeList;
     if(mode === 'tourney'){
+      // Tournament: the loser is "eliminated from the tournament" but
+      // NOT added to the global eliminated pool (else after one tourney
+      // there'd be no balls left for quick races).
       elimList = [finishOrder[1].ball];
       safeList = [];
     } else {
@@ -2005,8 +2046,11 @@
       elimList = finishOrder.slice(finishOrder.length - elimN).map(function(f){ return f.ball; });
       safeList = finishOrder.slice(1, finishOrder.length - elimN).map(function(f){ return f.ball; });
     }
-    elimList.forEach(function(l){ eliminated[l.id] = true; });
-    saveEliminated();
+    // Only persist eliminations in non-tournament modes
+    if(mode !== 'tourney'){
+      elimList.forEach(function(l){ eliminated[l.id] = true; });
+      saveEliminated();
+    }
     SFX.lose();
 
     if(mode === 'quick'){
@@ -2023,7 +2067,47 @@
   }
 
   function showResultPopup(winner, safeList, elimList, isTourneyMatch){
-    var html = '<h2>RACE RESULTS</h2>';
+    var html;
+
+    // Tournament match popup — compact, auto-dismisses, focuses on advancing player
+    if(isTourneyMatch){
+      var loser = elimList[0];
+      html = '<h2 style="font-size:14px;letter-spacing:1.5px">MATCH RESULT</h2>';
+      html += '<div class="winner-block" style="margin:10px 0;padding:12px">';
+      html += '<span class="crown" style="font-size:20px">🏆</span>';
+      html += '<div class="ball-big" style="background:' + winner.bg + ';width:48px;height:48px">' + ballIconHTML(winner) + '</div>';
+      html += '<div class="label" style="font-size:9px">ADVANCES</div>';
+      html += '<div class="name" style="font-size:15px">' + winner.name + '</div>';
+      html += '</div>';
+      if(loser){
+        html += '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:6px 0 10px;color:rgba(255,255,255,.65);font-size:12px">';
+        html += '<div class="ball-mini" style="width:24px;height:24px;border-radius:50%;background:' + loser.bg + ';display:flex;align-items:center;justify-content:center;overflow:hidden;filter:grayscale(.5)">' + ballIconHTML(loser) + '</div>';
+        html += '<span style="text-decoration:line-through;font-size:11px">' + loser.name + '</span>';
+        html += '<span style="color:#ff6a6a;font-size:9px;font-family:Bungee,cursive">OUT</span>';
+        html += '</div>';
+      }
+      html += '<div style="font-size:9px;color:rgba(255,255,255,.5);font-family:Bungee,cursive;letter-spacing:1px;margin-top:4px">AUTO-ADVANCING…</div>';
+      resultCard.innerHTML = html;
+      resultOverlay.classList.add('open');
+
+      // Auto-advance in tournament mode after a short pause.
+      // Tap anywhere on the overlay to skip ahead.
+      var autoTimer = setTimeout(function(){
+        resultOverlay.classList.remove('open');
+        advanceTournament(winner);
+      }, 1500);
+      var skip = function(){
+        clearTimeout(autoTimer);
+        resultOverlay.removeEventListener('click', skip);
+        resultOverlay.classList.remove('open');
+        advanceTournament(winner);
+      };
+      resultOverlay.addEventListener('click', skip);
+      return;
+    }
+
+    // Quick race popup (unchanged)
+    html = '<h2>RACE RESULTS</h2>';
     html += '<div class="winner-block">';
     html += '<span class="crown">🏆</span>';
     html += '<div class="ball-big" style="background:' + winner.bg + '">' + ballIconHTML(winner) + '</div>';
@@ -2031,7 +2115,6 @@
     html += '<div class="name">' + winner.name + '</div>';
     html += '</div>';
 
-    // Middle finishers (safe — not eliminated)
     if(safeList.length){
       html += '<div class="losers-block" style="background:rgba(255,255,255,.15)">';
       html += '<div class="label" style="color:#ffd84a">SAFE</div>';
@@ -2045,7 +2128,6 @@
       html += '</div>';
     }
 
-    // Eliminated balls
     if(elimList.length){
       html += '<div class="losers-block">';
       html += '<div class="label">ELIMINATED</div>';
@@ -2060,20 +2142,15 @@
       html += '</div>';
     }
 
-    var btnLabel = isTourneyMatch ? 'NEXT MATCH ▶' : 'PLAY AGAIN ▶';
-    html += '<button class="continue" id="resultContinue">' + btnLabel + '</button>';
+    html += '<button class="continue" id="resultContinue">PLAY AGAIN ▶</button>';
     resultCard.innerHTML = html;
     resultOverlay.classList.add('open');
     $('resultContinue').addEventListener('click', function(){
       SFX.click();
       resultOverlay.classList.remove('open');
-      if(isTourneyMatch){
-        advanceTournament(winner);
-      } else {
-        racers = [];
-        renderPlatform();
-        leverBtn.disabled = true;
-      }
+      racers = [];
+      renderPlatform();
+      leverBtn.disabled = true;
     });
   }
 
@@ -2120,47 +2197,170 @@
   /* ============================================================
      TOURNAMENT
   ============================================================ */
-  function startTournament(c){
-    var s = c.slice().sort(function(){return Math.random()-0.5;});
-    tourney = {contestants:s, rounds:[{name:'QUARTERFINALS',matches:[]},{name:'SEMIFINALS',matches:[]},{name:'FINAL',matches:[]}], currentRound:0, currentMatch:0, champion:null};
-    for(var i=0;i<s.length;i+=2) tourney.rounds[0].matches.push({a:s[i],b:s[i+1],winner:null});
-    SFX.bracket(); showBracketCard();
+  /* ============================================================
+     TOURNAMENT — variable size, auto-advancing bracket
+  ============================================================ */
+  function startTournament(contestants){
+    if(contestants.length < 2) return;
+
+    // Shuffle for random seeding
+    var s = contestants.slice();
+    for(var i = s.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = s[i]; s[i] = s[j]; s[j] = t;
+    }
+
+    // Round up to next power of 2 — extra slots become byes
+    var totalSlots = 1;
+    while(totalSlots < s.length) totalSlots *= 2;
+    var byes = totalSlots - s.length;
+    var totalRounds = Math.log2(totalSlots);  // e.g. 32 → 5 rounds
+
+    // Determine round names (working backwards from FINAL)
+    function roundName(roundIdx, totalRounds){
+      var fromEnd = totalRounds - roundIdx - 1;
+      if(fromEnd === 0) return 'FINAL';
+      if(fromEnd === 1) return 'SEMIFINALS';
+      if(fromEnd === 2) return 'QUARTERFINALS';
+      if(fromEnd === 3) return 'ROUND OF 16';
+      if(fromEnd === 4) return 'ROUND OF 32';
+      if(fromEnd === 5) return 'ROUND OF 64';
+      return 'ROUND ' + (roundIdx + 1);
+    }
+
+    // Build round 1 entrants — give the first `byes` players a bye
+    // (they auto-advance to round 2). The remaining play matches.
+    var byePlayers = s.slice(0, byes);
+    var matchPlayers = s.slice(byes);
+
+    var rounds = [];
+    for(var r = 0; r < totalRounds; r++){
+      rounds.push({ name: roundName(r, totalRounds), matches: [] });
+    }
+
+    // Round 1: pair up matchPlayers
+    for(var p = 0; p < matchPlayers.length; p += 2){
+      rounds[0].matches.push({
+        a: matchPlayers[p],
+        b: matchPlayers[p + 1],
+        winner: null
+      });
+    }
+
+    // Pre-populate round 2 with bye players in their seeded slots.
+    // Bye players occupy the early slots of round 2; round-1 winners
+    // fill the remaining slots in order.
+    if(rounds.length > 1){
+      var r2matches = totalSlots / 4;
+      // Round 2 has totalSlots/2 entrants → totalSlots/4 matches.
+      // Each match pairs two entrants. We need a list of `totalSlots/2`
+      // round-2 entrants where byePlayers occupy specific positions.
+      // Simple seeding: first `byes` slots of round 2 are bye players;
+      // the rest (`totalSlots/2 - byes`) come from round 1 winners.
+      var entrantCount = totalSlots / 2;
+      // We don't know round 1 winners yet — fill with placeholders
+      var slots = new Array(entrantCount).fill(null);
+      for(var b = 0; b < byes && b < entrantCount; b++){
+        slots[b] = byePlayers[b];
+      }
+      // Pair them into matches with the as-yet-unknown round-1 winners
+      for(var m = 0; m < r2matches; m++){
+        rounds[1].matches.push({
+          a: slots[m * 2] || null,           // bye player or null (TBD)
+          b: slots[m * 2 + 1] || null,
+          winner: null
+        });
+      }
+    }
+
+    tourney = {
+      contestants: s,
+      rounds: rounds,
+      totalRounds: totalRounds,
+      currentRound: 0,
+      currentMatch: 0,
+      champion: null,
+      autoPlay: false   // when true, races auto-start without lever
+    };
+
+    SFX.bracket();
+    showBracketCard(/* atRoundStart */ true);
   }
-  function competitorHTML(b, isW){
-    if(!b) return '<div class="competitor pending">?</div>';
-    return '<div class="competitor '+(isW?'winner':'')+'"><div class="ball-tiny" style="background:'+b.bg+'">'+ballIconHTML(b)+'</div><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+b.name+'</span></div>';
+
+  function competitorHTML(b, isW, dim){
+    if(!b) return '<div class="competitor pending">TBD</div>';
+    var classes = 'competitor' + (isW ? ' winner' : '') + (dim ? ' pending' : '');
+    return '<div class="' + classes + '"><div class="ball-tiny" style="background:' +
+      b.bg + '">' + ballIconHTML(b) + '</div><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+      b.name + '</span></div>';
   }
-  function showBracketCard(){
+
+  function showBracketCard(atRoundStart){
     if(!tourney){ bracketOverlay.classList.remove('open'); return; }
     bracketOverlay.classList.add('open');
+
     var round = tourney.rounds[tourney.currentRound];
     var match = round && round.matches[tourney.currentMatch];
+
     var html = '';
     if(tourney.champion){
-      html += '<h2>🏆 CHAMPION!</h2><div class="champion-banner"><div>WINNER OF THE TOURNAMENT</div><div class="ball-big" style="background:'+tourney.champion.bg+'">'+ballIconHTML(tourney.champion)+'</div><div style="font-size:16px">'+tourney.champion.name.toUpperCase()+'</div></div>';
+      html += '<h2>🏆 CHAMPION!</h2>';
+      html += '<div class="champion-banner">';
+      html += '<div>WINNER OF THE TOURNAMENT</div>';
+      html += '<div class="ball-big" style="background:' + tourney.champion.bg + '">' + ballIconHTML(tourney.champion) + '</div>';
+      html += '<div style="font-size:16px">' + tourney.champion.name.toUpperCase() + '</div>';
+      html += '</div>';
     } else {
-      html += '<h2>'+round.name+'</h2><div style="margin:6px 0;font-family:Bungee,cursive;color:#ffd84a;font-size:11px">MATCH '+(tourney.currentMatch+1)+' OF '+round.matches.length+'</div>';
+      html += '<h2>' + round.name + '</h2>';
+      html += '<div style="margin:6px 0;font-family:Bungee,cursive;color:#ffd84a;font-size:11px">';
+      html += tourney.contestants.length + ' CONTESTANTS · ' + round.matches.length + ' MATCH' + (round.matches.length === 1 ? '' : 'ES');
+      html += '</div>';
     }
+
+    // Compact bracket view — show only current and adjacent rounds
+    // to keep the card readable for big brackets.
     html += '<div class="bracket-rounds">';
-    tourney.rounds.forEach(function(r,ri){
-      html += '<div class="bracket-round"><div class="lbl">'+r.name+'</div>';
-      if(r.matches.length===0) html += '<div class="competitor pending">—</div>';
-      else r.matches.forEach(function(m,mi){
-        var cur = ri===tourney.currentRound && mi===tourney.currentMatch && !tourney.champion;
-        html += '<div class="matchup" style="'+(cur?'box-shadow:0 0 0 2px #ffd84a;border-radius:8px;padding:2px':'')+'">';
-        html += competitorHTML(m.a, m.winner===m.a);
-        html += competitorHTML(m.b, m.winner===m.b);
-        html += '</div>';
-      });
+    var roundsToShow = getRoundsToShow();
+    roundsToShow.forEach(function(ri){
+      var r = tourney.rounds[ri];
+      html += '<div class="bracket-round"><div class="lbl">' + r.name + '</div>';
+      if(r.matches.length === 0){
+        html += '<div class="competitor pending">—</div>';
+      } else {
+        // Limit displayed matches per round if there are too many
+        var matchesToShow = r.matches.length > 8 ? 8 : r.matches.length;
+        for(var mi = 0; mi < matchesToShow; mi++){
+          var m = r.matches[mi];
+          var cur = ri === tourney.currentRound && mi === tourney.currentMatch && !tourney.champion;
+          html += '<div class="matchup" style="' + (cur ? 'box-shadow:0 0 0 2px #ffd84a;border-radius:8px;padding:2px' : '') + '">';
+          html += competitorHTML(m.a, m.winner === m.a, false);
+          html += competitorHTML(m.b, m.winner === m.b, false);
+          html += '</div>';
+        }
+        if(r.matches.length > matchesToShow){
+          html += '<div style="font-size:9px;color:rgba(255,255,255,.6);text-align:center;margin-top:4px">+' + (r.matches.length - matchesToShow) + ' more</div>';
+        }
+      }
       html += '</div>';
     });
     html += '<div class="bracket-round"><div class="lbl">CHAMPION</div>';
     if(tourney.champion) html += competitorHTML(tourney.champion, true);
     else html += '<div class="competitor pending">?</div>';
-    html += '</div></div>';
-    if(tourney.champion) html += '<div class="bracket-actions"><button class="btn-quit" id="bracketDone">DONE</button></div>';
-    else html += '<div class="bracket-actions"><button class="btn-quit" id="bracketQuit">QUIT</button><button class="btn-next" id="bracketNext">NEXT MATCH ▶</button></div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Action buttons
+    if(tourney.champion){
+      html += '<div class="bracket-actions"><button class="btn-quit" id="bracketDone">DONE</button></div>';
+    } else {
+      html += '<div class="bracket-actions">';
+      html += '<button class="btn-quit" id="bracketQuit">QUIT</button>';
+      var nextLabel = atRoundStart ? ('▶ START ' + round.name) : 'NEXT MATCH ▶';
+      html += '<button class="btn-next" id="bracketNext">' + nextLabel + '</button>';
+      html += '</div>';
+    }
     bracketCard.innerHTML = html;
+
     if(tourney.champion){
       $('bracketDone').addEventListener('click', function(){ SFX.click(); resetAll(); });
     } else {
@@ -2171,34 +2371,126 @@
       $('bracketNext').addEventListener('click', function(){
         SFX.pop();
         bracketOverlay.classList.remove('open');
-        racers = [match.a, match.b];
-        renderPlatform();
-        raceNumEl.textContent = round.name.replace('FINALS','FINAL') + ' M' + (tourney.currentMatch+1);
-        leverBtn.disabled = false;
+        startTourneyMatch();
       });
     }
   }
+
+  // Decide which rounds to display in the bracket card.
+  // For small brackets (≤3 rounds), show all. For larger, show
+  // the current round, the previous round, and the next round.
+  function getRoundsToShow(){
+    if(!tourney) return [];
+    var n = tourney.rounds.length;
+    if(n <= 3){
+      var all = [];
+      for(var i = 0; i < n; i++) all.push(i);
+      return all;
+    }
+    var cur = tourney.currentRound;
+    var indices = [];
+    if(cur > 0) indices.push(cur - 1);
+    indices.push(cur);
+    if(cur < n - 1) indices.push(cur + 1);
+    return indices;
+  }
+
+  // Set up and run the current tournament match
+  function startTourneyMatch(){
+    if(!tourney || tourney.champion) return;
+    var round = tourney.rounds[tourney.currentRound];
+    var match = round.matches[tourney.currentMatch];
+    if(!match) return;
+
+    // If this match has a missing competitor (one had a bye and the other
+    // hasn't been determined yet — shouldn't happen with proper seeding,
+    // but defensive), auto-advance.
+    if(!match.a && !match.b){
+      // No-op match, skip
+      tourney.currentMatch++;
+      checkRoundComplete();
+      return;
+    }
+    if(!match.a || !match.b){
+      // Auto-advance the present player
+      var auto = match.a || match.b;
+      match.winner = auto;
+      tourney.currentMatch++;
+      setTimeout(function(){ checkRoundComplete(); }, 100);
+      return;
+    }
+
+    racers = [match.a, match.b];
+    renderPlatform();
+    raceNumEl.textContent = round.name.replace('FINALS', 'FINAL') + ' M' + (tourney.currentMatch + 1);
+
+    // Auto-start the race after a brief moment so the user sees the matchup
+    setTimeout(function(){
+      if(racing || !tourney || tourney.champion) return;
+      startRace();
+    }, 700);
+  }
+
   function advanceTournament(winner){
+    if(!tourney) return;
     var round = tourney.rounds[tourney.currentRound];
     round.matches[tourney.currentMatch].winner = winner;
     SFX.bracket();
     tourney.currentMatch++;
-    if(tourney.currentMatch >= round.matches.length){
-      var nx = tourney.currentRound + 1;
-      if(nx < tourney.rounds.length){
-        var ws = round.matches.map(function(m){return m.winner;});
-        for(var i=0;i<ws.length;i+=2) tourney.rounds[nx].matches.push({a:ws[i],b:ws[i+1],winner:null});
-        tourney.currentRound = nx;
-        tourney.currentMatch = 0;
-      } else {
-        tourney.champion = winner;
-        history.unshift({ts:Date.now(),mode:'tourney',winnerId:winner.id,contestants:tourney.contestants.map(function(c){return c.id;})});
-        saveHistory();
-        SFX.champion();
-        burstConfetti(winner.color);
-      }
+    checkRoundComplete();
+  }
+
+  function checkRoundComplete(){
+    if(!tourney || tourney.champion) return;
+    var round = tourney.rounds[tourney.currentRound];
+
+    // Still matches left in this round — auto-start next match
+    if(tourney.currentMatch < round.matches.length){
+      // Brief pause then auto-start next match. No bracket card.
+      setTimeout(function(){
+        if(tourney && !tourney.champion) startTourneyMatch();
+      }, 400);
+      return;
     }
-    showBracketCard();
+
+    // Round complete — populate next round with winners
+    var nextIdx = tourney.currentRound + 1;
+    if(nextIdx < tourney.rounds.length){
+      var winners = round.matches.map(function(m){ return m.winner; });
+      var nextRound = tourney.rounds[nextIdx];
+      var winnerCursor = 0;
+      // Fill empty `b` slots first, then matches with no players
+      for(var i = 0; i < nextRound.matches.length; i++){
+        var nm = nextRound.matches[i];
+        if(!nm.a){ nm.a = winners[winnerCursor++]; }
+        if(!nm.b){ nm.b = winners[winnerCursor++]; }
+      }
+      // If round 2+ wasn't pre-populated, pair fresh
+      if(nextRound.matches.length === 0){
+        for(var w = 0; w < winners.length; w += 2){
+          nextRound.matches.push({ a: winners[w], b: winners[w + 1], winner: null });
+        }
+      }
+      tourney.currentRound = nextIdx;
+      tourney.currentMatch = 0;
+
+      // Show bracket card briefly to mark round transition
+      setTimeout(function(){
+        if(tourney && !tourney.champion) showBracketCard(/* atRoundStart */ true);
+      }, 600);
+    } else {
+      // Tournament complete!
+      tourney.champion = round.matches[round.matches.length - 1].winner;
+      history.unshift({
+        ts: Date.now(), mode: 'tourney',
+        winnerId: tourney.champion.id,
+        contestants: tourney.contestants.map(function(c){ return c.id; })
+      });
+      saveHistory();
+      SFX.champion();
+      burstConfetti(tourney.champion.color);
+      setTimeout(function(){ showBracketCard(); }, 800);
+    }
   }
 
   /* ============================================================
